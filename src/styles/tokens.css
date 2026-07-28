@@ -1,0 +1,140 @@
+/**
+ * Design tokens — single source of truth for color/spacing/type/motion/elevation.
+ * A parallel TS module (design-system/tokens/*.ts) mirrors whatever of this
+ * JS/canvas code needs numerically (Three.js materials, GSAP durations can't
+ * read CSS custom properties). See docs/02_DESIGN_SYSTEM.md.
+ */
+
+@theme inline {
+  /* ---- brand ramps (OKLCH: warm espresso + cream + copper accent) ---- */
+  --color-espresso-50: oklch(0.98 0.01 60);
+  --color-espresso-100: oklch(0.95 0.015 55);
+  --color-espresso-200: oklch(0.88 0.02 50);
+  --color-espresso-300: oklch(0.78 0.035 45);
+  --color-espresso-400: oklch(0.65 0.05 40);
+  --color-espresso-500: oklch(0.52 0.06 38);
+  --color-espresso-600: oklch(0.42 0.055 35);
+  --color-espresso-700: oklch(0.32 0.045 32);
+  --color-espresso-800: oklch(0.22 0.035 30);
+  --color-espresso-900: oklch(0.14 0.025 28);
+
+  --color-cream-50: oklch(0.99 0.005 85);
+  --color-cream-100: oklch(0.97 0.01 80);
+  --color-cream-200: oklch(0.94 0.015 78);
+  --color-cream-300: oklch(0.9 0.02 75);
+  --color-cream-400: oklch(0.84 0.025 72);
+  --color-cream-500: oklch(0.76 0.03 70);
+  --color-cream-600: oklch(0.66 0.03 68);
+  --color-cream-700: oklch(0.55 0.025 65);
+  --color-cream-800: oklch(0.42 0.02 60);
+  --color-cream-900: oklch(0.28 0.015 55);
+
+  --color-brand-accent-300: oklch(0.86 0.09 60);
+  --color-brand-accent-400: oklch(0.78 0.12 58);
+  --color-brand-accent-500: oklch(0.68 0.15 55);
+  --color-brand-accent-600: oklch(0.54 0.15 50);
+  --color-brand-accent-700: oklch(0.48 0.13 45);
+
+  /* ---- semantic tokens (shadcn contract), remapped per theme below ---- */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  /* ---- radius scale ---- */
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-full: 9999px;
+
+  /* ---- spacing (semantic, on top of Tailwind's default scale) ---- */
+  --spacing-section: 8rem;
+  --spacing-section-sm: 4rem;
+
+  /* ---- typography ---- */
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-display: var(--font-fraunces);
+  --text-hero: 5.5rem;
+  --text-hero--line-height: 1.02;
+  --text-display: 3.25rem;
+  --text-display--line-height: 1.05;
+
+  /* ---- elevation / glow ---- */
+  --shadow-glass-sm: 0 1px 2px oklch(0 0 0 / 6%);
+  --shadow-glass-md: 0 8px 30px oklch(0 0 0 / 10%);
+  --shadow-glass-lg: 0 20px 60px oklch(0 0 0 / 16%);
+  --shadow-glow-accent: 0 0 40px oklch(0.68 0.15 55 / 35%);
+  --shadow-glow-accent-strong: 0 0 60px oklch(0.68 0.15 55 / 50%);
+
+  /* ---- motion (CSS-transition consumers; JS values mirrored in engine/motion) ---- */
+  --ease-premium: cubic-bezier(0.16, 1, 0.3, 1);
+  --duration-fast: 150ms;
+  --duration-base: 300ms;
+  --duration-slow: 600ms;
+}
+
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+:root {
+  --background: var(--color-cream-50);
+  --foreground: var(--color-espresso-900);
+  --card: var(--color-cream-100);
+  --card-foreground: var(--color-espresso-900);
+  --popover: var(--color-cream-50);
+  --popover-foreground: var(--color-espresso-900);
+  --primary: var(--color-espresso-800);
+  --primary-foreground: var(--color-cream-50);
+  --secondary: var(--color-cream-200);
+  --secondary-foreground: var(--color-espresso-800);
+  --muted: var(--color-cream-200);
+  --muted-foreground: var(--color-espresso-600);
+  --accent: var(--color-cream-200);
+  --accent-foreground: var(--color-espresso-800);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.22 0.035 30 / 12%);
+  --input: oklch(0.22 0.035 30 / 14%);
+  /* brand-accent-500 (used decoratively elsewhere) is only 2.93:1 against
+     cream-50 — below WCAG 1.4.11's 3:1 minimum for UI-component/focus-ring
+     contrast. -600 (already darkened for text contrast, see brandAccent
+     tokens) clears both bars without dulling the decorative accent color. */
+  --ring: var(--color-brand-accent-600);
+  --radius: 0.625rem;
+}
+
+[data-theme="dark"] {
+  --background: var(--color-espresso-900);
+  --foreground: var(--color-cream-50);
+  --card: var(--color-espresso-800);
+  --card-foreground: var(--color-cream-50);
+  --popover: var(--color-espresso-800);
+  --popover-foreground: var(--color-cream-50);
+  --primary: var(--color-cream-50);
+  --primary-foreground: var(--color-espresso-900);
+  --secondary: var(--color-espresso-700);
+  --secondary-foreground: var(--color-cream-100);
+  --muted: var(--color-espresso-700);
+  --muted-foreground: var(--color-cream-400);
+  --accent: var(--color-espresso-700);
+  --accent-foreground: var(--color-cream-50);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 12%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: var(--color-brand-accent-400);
+}
