@@ -7,6 +7,8 @@ import { Suspense, useCallback, useEffect } from "react";
 import { track } from "@/engine/analytics/tracking";
 import { initTexturePipeline } from "@/engine/assets/textures";
 import { resolveCameraPreset } from "@/engine/camera/presets";
+import { performanceManager } from "@/engine/performance";
+import { resolveQualityPolicy } from "@/engine/performance/qualityPolicy";
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 
 import { useCupKeyboardTrigger } from "../hooks/useCupKeyboardControls";
@@ -39,6 +41,12 @@ export default function CupCanvas() {
   // Drag-to-rotate has no keyboard equivalent otherwise. Focusing this
   // region and pressing Left/Right rotates the cup the same way a drag does.
   const { onKeyDown } = useCupKeyboardTrigger();
+  // Reactive (not `.getValue()`) — a tier change must re-render the
+  // Canvas with a new `dpr` prop; DPR is a render-target resolution
+  // change, not something that can be smoothed continuously (see
+  // `useSmoothedValue.ts`'s doc comment on which parameters can and can't be).
+  const tier = performanceManager.tier.useValue();
+  const dprRange = resolveQualityPolicy(tier).dprRange;
 
   const onCreated = useCallback(
     (state: RootState) => {
@@ -67,7 +75,7 @@ export default function CupCanvas() {
       )}
       <Canvas
         shadows
-        dpr={[1, 2]}
+        dpr={dprRange}
         camera={{ position: heroCameraPreset.position, fov: heroCameraPreset.fov }}
         frameloop={reducedMotion ? "demand" : "always"}
         className={`focus-visible:ring-ring h-full w-full rounded-lg focus-visible:ring-2 focus-visible:outline-none ${contextLost ? "invisible" : ""}`}

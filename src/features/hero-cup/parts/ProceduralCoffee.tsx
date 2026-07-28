@@ -3,6 +3,7 @@ import * as THREE from "three";
 import type { Group } from "three";
 
 import { createLiquidMaterial, getOrCreateMaterial, resolveEnvMapIntensity, SURFACE_PRESETS, updateMaterialColor, updateMaterialParams } from "@/engine/materials";
+import { applyCoffeeSurface } from "@/engine/shaders/coffee/CoffeeSurface";
 import { themeToPresetMap } from "@/engine/theme/LightingThemes";
 import { useActiveTheme } from "@/engine/theme/ThemeEngine";
 import { espressoColor } from "@/engine/theme/ColorSchemes";
@@ -31,13 +32,19 @@ export const ProceduralCoffee = forwardRef<Group, CupPartProps>(function Procedu
       const mat = createLiquidMaterial(colorObj, { envMapIntensity });
       updateMaterialParams(mat, "liquid", materialOverrides);
       if (materialOverrides.color) updateMaterialColor(mat, new THREE.Color(materialOverrides.color));
+      applyCoffeeSurface(mat);
       return mat;
     }
 
+    // applyCoffeeSurface runs inside the factory — only on a real cache
+    // miss. Calling it after getOrCreateMaterial returns (on a cache hit)
+    // would re-set onBeforeCompile and force a wasted recompile.
     const colorHex = `#${colorObj.getHexString()}`;
-    return getOrCreateMaterial({ surface: "liquid", colorHex, variant: lightingPresetName }, () =>
-      createLiquidMaterial(colorObj, { envMapIntensity }),
-    ) as THREE.MeshPhysicalMaterial;
+    return getOrCreateMaterial({ surface: "liquid", colorHex, variant: lightingPresetName }, () => {
+      const mat = createLiquidMaterial(colorObj, { envMapIntensity });
+      applyCoffeeSurface(mat);
+      return mat;
+    }) as THREE.MeshPhysicalMaterial;
   }, [materialOverrides, lightingPresetName]);
 
   return (

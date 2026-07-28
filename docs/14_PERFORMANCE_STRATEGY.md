@@ -1,6 +1,6 @@
 # 14 — Performance Strategy
 
-Target design (Milestone 2+) for concrete performance budgets and the adaptive-quality mechanism that enforces them. [03_3D_ENGINE.md](03_3D_ENGINE.md) names the Performance Manager; this doc is its actual numbers and reasoning.
+Concrete performance budgets and the adaptive-quality mechanism that enforces them. [03_3D_ENGINE.md](03_3D_ENGINE.md) names the Performance Manager; this doc is its actual numbers and reasoning. The budget table below was target design through Sprint 2.4; the adaptive quality tiers and stepping algorithm are real, implemented, and verified as of Sprint 2.5 — see [reviews/sprint-2.5-review.md](reviews/sprint-2.5-review.md).
 
 ## Budget table
 
@@ -14,19 +14,25 @@ Target design (Milestone 2+) for concrete performance budgets and the adaptive-q
 | Geometry, secondary/decorative object | < 500 triangles each | Ingredient-system-scale objects (Milestone 5) — kept low specifically because there may be many of them simultaneously, and instancing (below) optimizes per-instance cost, not raw vertex count |
 | Draw calls per scene | < 100 | Mobile GPU bottlenecks are frequently CPU-side draw-call submission overhead, not raw fragment/vertex throughput — this ceiling matters more than triangle count on the low end. Milestone 1's hero scene sits around 10–15; plenty of headroom before instancing becomes mandatory rather than optional |
 
-## Adaptive quality tiers
+## Adaptive quality tiers — implemented, Sprint 2.5
 
-Three tiers, stepped down (never automatically back up mid-session, to avoid visible thrashing) by the Performance Manager once sustained low FPS is observed:
+Five tiers (extended from the original 3 — `ultra` and `minimal` added — a sanctioned [17_ZERO_REWRITE_POLICY.md](17_ZERO_REWRITE_POLICY.md) exception since Sprint 2.5's brief named all 5 explicitly), resolved by `engine/performance/qualityPolicy.ts`'s `resolveQualityPolicy(tier)`, stepped by `engine/performance/adaptiveQuality.ts`'s `evaluateAdaptiveQuality(fps)`:
 
-| Tier | DPR cap | Shadow map | Bloom |
-|---|---|---|---|
-| High (default) | `[1, 2]` | 2048² | Enabled, full intensity |
-| Medium | `[1, 1.5]` | 1024² | Enabled, reduced intensity |
-| Low | `[1, 1]` | 512² (or shadows off entirely) | Disabled |
+| Tier | DPR cap | Shadow map | Bloom | Environment res. | Max particles |
+|---|---|---|---|---|---|
+| Ultra | `[1, 2]` | 2048² | Enabled, 110% intensity | 100% | 512 |
+| High (default) | `[1, 2]` | 2048² | Enabled, full intensity | 100% | 256 |
+| Medium | `[1, 1.5]` | 1024² | Enabled, 75% intensity | 75% | 128 |
+| Low | `[1, 1]` | 512² | Enabled, 50% intensity | 50% | 48 |
+| Minimal | `[1, 1]` | 256² | **Disabled** — the one exception to "scale, don't disable" below | 50% | 0 |
 
-**Trigger**: FPS below 45 for more than 3 consecutive ~500ms samples steps down one tier. The sampling cadence matches the dev-stats collector's existing 500ms interval — but see the note below, this needs its own instance, not the dev-only one.
+**"Never disable a feature if it can instead scale"** (this sprint's explicit constraint): every parameter above is a continuous scale across all 5 tiers, with exactly one deliberate exception — `bloomEnabled` only goes `false` at the single most extreme tier (`minimal`). Every other step, in either direction, reads as a graceful fade, not a pop, reinforced by `useSmoothedValue.ts` damping bloom intensity toward its new target (this sprint's Creative Budget item) rather than snapping.
 
-**A real distinction that matters**: the *visible* dev panel overlay is correctly dev-only (`NODE_ENV !== "production"`, per Milestone 1's stabilization fix). The *underlying FPS sampling* that adaptive quality reads from is not the same thing and must run in production — a session on a struggling device is exactly the session adaptive quality exists to protect, and that's always a production session. The Performance Manager's sampler is a separate, lightweight instance from the dev panel's collector, sharing the same sampling *utility* but not gated the same way.
+**Trigger — asymmetric hysteresis, not a single symmetric threshold**: stepping *down* is fast (FPS below 45 for 3 consecutive ~500ms samples, ~1.5s) to protect the user quickly. Stepping *up* requires a much longer sustained recovery (10 consecutive samples at/above 55 FPS, ~5s) before it's trusted. This is a deliberate, documented evolution of the original "never auto-step-up mid-session" rule below, not a silent reversal of it — real thrashing avoidance came from asymmetry, not from forbidding recovery outright. Verified in a real headless-Chrome session under 25x CPU throttling: the tier stepped `ultra → high → medium → low → minimal`, one tier at a time, matching `QUALITY_TIER_ORDER`; removing the throttle produced exactly one recovery step in the following 8s window, consistent with the 10-sample/~5s upgrade cadence. See [reviews/sprint-2.5-review.md](reviews/sprint-2.5-review.md) for the full trace.
+
+**A real distinction that matters**: the *visible* dev panel overlay is correctly dev-only (`NODE_ENV !== "production"`, per Milestone 1's stabilization fix). The *underlying FPS sampling* that adaptive quality reads from is not the same thing and must run in production — a session on a struggling device is exactly the session adaptive quality exists to protect, and that's always a production session. `engine/performance/PerformanceSampler.tsx` is that separate, always-mounted instance — Sprint 2.1 built the `tier`/`sampleFrame` foundation but nothing fed it outside the dev-only collector; this sprint closed that gap for real.
+
+**GPU/memory signals, same sprint**: `gpuBudget.ts` compares each sample against the draw-call/triangle budgets above and emits `gpu:budget-warning` on a transition into over-budget; `memoryPressure.ts` derives `memory:pressure` from `resource:evicted` rate plus the `performance:degraded` signal (no reliable cross-browser memory-measurement API exists, the same documented limitation as Sprint 2.2's count-based cache caps).
 
 ## LOD strategy — deliberately minimal for this product
 
@@ -45,4 +51,4 @@ Each async 3D resource sits behind the *smallest reasonable* Suspense boundary, 
 
 ## Related
 
-[03_3D_ENGINE.md](03_3D_ENGINE.md) · [3d-asset-pipeline.md](3d-asset-pipeline.md) · [13_SHADER_ARCHITECTURE.md](13_SHADER_ARCHITECTURE.md)
+[03_3D_ENGINE.md](03_3D_ENGINE.md) · [3d-asset-pipeline.md](3d-asset-pipeline.md) · [13_SHADER_ARCHITECTURE.md](13_SHADER_ARCHITECTURE.md) · [19_EVENT_CATALOG.md](19_EVENT_CATALOG.md) · [reviews/sprint-2.5-review.md](reviews/sprint-2.5-review.md)

@@ -1,70 +1,33 @@
 "use client";
 
-import { useFrame, useThree } from "@react-three/fiber";
 import type { ReactNode } from "react";
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 
 import { performanceManager } from "@/engine/performance";
+import { latestSnapshot } from "@/engine/performance/runtimeProfiler";
 import { createBridgeStore } from "@/engine/state/createBridgeStore";
 import { useUIStore } from "@/stores/ui-store";
 
-interface DevStats {
-  fps: number;
-  drawCalls: number;
-  triangles: number;
-  geometries: number;
-  preset: string;
-}
-
-const devStats = createBridgeStore<DevStats>({
-  fps: 0,
-  drawCalls: 0,
-  triangles: 0,
-  geometries: 0,
-  preset: "-",
-});
+/**
+ * Purely informational (which camera preset is active) — real performance
+ * *measurements* now live in `engine/performance/runtimeProfiler.ts`'s
+ * `latestSnapshot`, produced by the always-on `PerformanceSampler`
+ * (Sprint 2.5), not sampled a second time here. Keeping "what's being
+ * rendered" and "how well it's rendering" as two separate, small stores
+ * rather than one bag of unrelated fields.
+ */
+const currentPreset = createBridgeStore("-");
 
 interface DevPanelStatsCollectorProps {
   /** A generic label (a camera preset name, a route name, ...) — this collector doesn't care what it means. */
   preset: string;
 }
 
-/**
- * Renders nothing — samples `gl.info` and FPS every ~500ms from inside the
- * Canvas and writes to a dedicated bridge store so the DOM overlay
- * (DevPanel, outside the Canvas) doesn't need to re-render every frame.
- * Also feeds the Performance Manager's foundation sampler (docs/22_MANAGER_INTERFACES.md).
- * GPU/memory/particle-count are documented future additions — no reliable
- * standard web API for those exists yet.
- */
+/** Dev-only (gated at the call site) — records which preset is active for the overlay's display. The real sampling loop is `PerformanceSampler`, mounted unconditionally. */
 export function DevPanelStatsCollector({ preset }: DevPanelStatsCollectorProps) {
-  const { gl } = useThree();
-  const lastSampleTime = useRef(performance.now());
-  const framesSinceSample = useRef(0);
-
-  // Deliberately `useFrame`, not a raw `requestAnimationFrame` loop — under
-  // frameloop="demand" (reduced motion), R3F only calls useFrame when it
-  // actually renders a frame, so this correctly reflects R3F's real render
-  // rate (including sparse demand-mode rendering) rather than the OS's
-  // unconditional animation-frame rate.
-  useFrame(() => {
-    framesSinceSample.current += 1;
-    const now = performance.now();
-    const elapsed = now - lastSampleTime.current;
-    if (elapsed >= 500) {
-      const fps = Math.round((framesSinceSample.current * 1000) / elapsed);
-      devStats.setValue({
-        fps,
-        drawCalls: gl.info.render.calls,
-        triangles: gl.info.render.triangles,
-        geometries: gl.info.memory.geometries,
-        preset,
-      });
-      performanceManager.sampleFrame(fps);
-      framesSinceSample.current = 0;
-      lastSampleTime.current = now;
-    }
-  });
+  useEffect(() => {
+    currentPreset.setValue(preset);
+  }, [preset]);
 
   return null;
 }
@@ -91,8 +54,10 @@ export function registerDevPanel(name: string, render: () => ReactNode): void {
 export function DevPanel() {
   const devPanelOpen = useUIStore((state) => state.devPanelOpen);
   const toggleDevPanel = useUIStore((state) => state.toggleDevPanel);
-  const stats = devStats.useValue();
+  const snapshot = latestSnapshot.useValue();
   const tier = performanceManager.tier.useValue();
+  const mode = performanceManager.mode.useValue();
+  const preset = currentPreset.useValue();
 
   useEffect(() => {
     if (process.env.NODE_ENV === "production") return;
@@ -109,12 +74,14 @@ export function DevPanel() {
 
   return (
     <div className="fixed bottom-4 left-4 z-50 rounded-md bg-black/80 px-3 py-2 font-mono text-xs text-white">
-      <p>{stats.fps} fps</p>
       <p>
-        {stats.drawCalls} calls · {stats.triangles} tris · {stats.geometries} geo
+        {snapshot?.fps ?? 0} fps · {(snapshot?.frameTimeMs ?? 0).toFixed(1)} ms/frame
       </p>
       <p>
-        camera: {stats.preset} · tier: {tier}
+        {snapshot?.drawCalls ?? 0} calls · {snapshot?.triangles ?? 0} tris · {snapshot?.geometries ?? 0} geo
+      </p>
+      <p>
+        camera: {preset} · tier: {tier} ({mode})
       </p>
       {Array.from(registeredPanels.entries()).map(([name, render]) => (
         <div key={name}>{render()}</div>

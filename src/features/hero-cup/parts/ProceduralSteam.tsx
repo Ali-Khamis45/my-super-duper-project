@@ -5,6 +5,7 @@ import * as THREE from "three";
 import type { Group, Mesh } from "three";
 
 import { createRadialGradientTexture } from "@/engine/graphics/TextureLoader";
+import { createSteamMaterial } from "@/engine/shaders/steam/SteamMaterial";
 
 import { CUP_RIM_HEIGHT } from "../geometry/cupProfile";
 import type { CupPartProps } from "../registry/types";
@@ -14,11 +15,18 @@ const RISE_DISTANCE = 0.85;
 const CYCLE_SECONDS = 3.4;
 const PLANE_COUNT = 3;
 
+/** The Milestone 1 placeholder technique, unchanged — the fallback if the shader material fails to construct. See docs/03_3D_ENGINE.md's Robustness section. */
+function createFallbackMaterial(texture: THREE.Texture): THREE.MeshBasicMaterial {
+  return new THREE.MeshBasicMaterial({ map: texture, transparent: true, depthWrite: false, opacity: 0 });
+}
+
 /**
- * Placeholder-tier steam — billboarded, noise-textured planes with a rising
- * + fading loop, no custom shader/particle sim. This is the seam where a
- * real shader-based steam simulation slots in (Milestone 2); see
- * docs/03_3D_ENGINE.md.
+ * Sprint 2.4: the flat radial-gradient texture is replaced by a real,
+ * intentionally simple noise shader (`engine/shaders/steam/`) — the rise/
+ * fade/scale animation loop below is otherwise byte-for-byte the Milestone
+ * 1 logic, unchanged. `uOpacity`/`uTime` are per-instance uniforms (not the
+ * shared block) so the 3 planes keep independent phase, exactly as their
+ * position/scale already do.
  */
 export const ProceduralSteam = forwardRef<Group, CupPartProps>(function ProceduralSteam(
   { position, rotation, scale, visible },
@@ -27,20 +35,20 @@ export const ProceduralSteam = forwardRef<Group, CupPartProps>(function Procedur
   const planeRefs = useRef<(Mesh | null)[]>([]);
   const texture = useMemo(() => createRadialGradientTexture(128), []);
 
-  const materials = useMemo(
-    () =>
-      Array.from(
-        { length: PLANE_COUNT },
-        () =>
-          new THREE.MeshBasicMaterial({
-            map: texture,
-            transparent: true,
-            depthWrite: false,
-            opacity: 0,
-          }),
-      ),
-    [texture],
-  );
+  const { materials, usingFallback } = useMemo(() => {
+    try {
+      return {
+        materials: Array.from({ length: PLANE_COUNT }, () => createSteamMaterial()),
+        usingFallback: false,
+      };
+    } catch (error) {
+      console.error("[ProceduralSteam] steam shader failed to construct, falling back to the billboard placeholder:", error);
+      return {
+        materials: Array.from({ length: PLANE_COUNT }, () => createFallbackMaterial(texture)),
+        usingFallback: true,
+      };
+    }
+  }, [texture]);
 
   useFrame(({ clock }) => {
     if (visible === false) return;
@@ -59,8 +67,16 @@ export const ProceduralSteam = forwardRef<Group, CupPartProps>(function Procedur
 
       const fadeIn = Math.min(progress / 0.2, 1);
       const fadeOut = Math.min((1 - progress) / 0.35, 1);
-      material.opacity = Math.min(fadeIn, fadeOut) * 0.4;
+      const opacity = Math.min(fadeIn, fadeOut) * 0.4;
       plane.scale.setScalar(0.35 + progress * 0.5);
+
+      if (usingFallback) {
+        (material as THREE.MeshBasicMaterial).opacity = opacity;
+      } else {
+        const shaderMaterial = material as THREE.ShaderMaterial;
+        shaderMaterial.uniforms.uOpacity!.value = opacity;
+        shaderMaterial.uniforms.uTime!.value = time + phase * CYCLE_SECONDS;
+      }
     }
   });
 

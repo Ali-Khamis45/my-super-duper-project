@@ -2,9 +2,9 @@
 
 The shared, cross-feature 3D machinery. Feature-specific 3D content (the cup itself) lives in `features/hero-cup/` and is documented in its own README.
 
-This doc has two parts. **"Current state"** describes what's actually built and running (Milestone 1 + Sprint 2.1 Rendering Core + Sprint 2.2 Asset & Resource Platform + Sprint 2.3 Material & Surface Platform) — if it disagrees with the code, the code wins and this doc is wrong. **"Target architecture"** is what's designed but not yet implemented, each piece tied to the sprint that builds it (see [16_ENGINEERING_SPRINTS.md](16_ENGINEERING_SPRINTS.md)). Do not write code against the target section without checking the roadmap first.
+This doc has two parts. **"Current state"** describes what's actually built and running (Milestone 1 + Sprint 2.1 Rendering Core + Sprint 2.2 Asset & Resource Platform + Sprint 2.3 Material & Surface Platform + Sprint 2.4 Shader & Rendering Pipeline) — if it disagrees with the code, the code wins and this doc is wrong. **"Target architecture"** is what's designed but not yet implemented, each piece tied to the sprint that builds it (see [16_ENGINEERING_SPRINTS.md](16_ENGINEERING_SPRINTS.md)). Do not write code against the target section without checking the roadmap first.
 
-## Current state (Milestone 1 + Sprint 2.1 + Sprint 2.2 + Sprint 2.3, implemented)
+## Current state (Milestone 1 + Sprint 2.1 + Sprint 2.2 + Sprint 2.3 + Sprint 2.4, implemented)
 
 ### The generalized registry (`engine/registry/createPartRegistry.ts`)
 
@@ -37,13 +37,24 @@ Split from the old combined `LightingTheme` map into two independent, additive r
 
 **`useCupInteractionState` does NOT consume `useGestureRecognizer`** — a genuine architectural finding from this sprint, not a shortcut: the cup is hit-tested by R3F's raycaster on a `<group>` (`ThreeEvent` handlers), never a DOM element, so `useGestureRecognizer`'s `RefObject<HTMLElement>` shape doesn't fit 3D hit-testing. `useCupInteractionState` keeps its own proven pointer mechanics (identical drag sensitivity/inertia math to Milestone 1) but now speaks the same `GestureType`/`PointerKind` vocabulary and emits the same `interaction:started`/`-ended` events, so a future DOM-native interactive control and the cup are consistent at the event-vocabulary level without forcing a wrong shared implementation. `useGestureRecognizer` is real infrastructure for the *next* genuinely DOM-native interactive object (e.g. a future 2D customizer control), not dead code today — it's fully tested against real Pointer Events, independent of having a production caller yet.
 
-### Performance (`engine/performance/`) — foundation only
+### Performance (`engine/performance/`) — Runtime Optimization & Adaptive Quality, Sprint 2.5
 
-`tier` (a `BridgeStore<QualityTier>`, default `"high"`) and `sampleFrame(fps)` exist and are wired for real: `DevPanelStatsCollector` calls `sampleFrame` every ~500ms alongside its existing FPS sample. The adaptive stepping algorithm (sustained-low-FPS detection, step-down-never-auto-step-up hysteresis) is **not** built yet — deliberately deferred to Sprint 2.5, once the steam shader gives the scene enough complexity for a meaningful budget to test against; building it now against an empty scene would be unverifiable. One-directionality rule (from [15_ARCHITECTURE_FREEZE.md](15_ARCHITECTURE_FREEZE.md)) is upheld: this module imports nothing from Effect/Shader/Material Managers.
+`tier` (a `BridgeStore<QualityTier>`, default `"high"`) and `mode` (a `BridgeStore<QualityMode>`, default `"automatic"`) are the module's two owned bridge stores; `sampleFrame(fps)` records the latest reading. `QualityTier` was extended this sprint from 3 values (`high`/`medium`/`low`) to 5 (`ultra`/`high`/`medium`/`low`/`minimal`) — a deliberate, sanctioned [17_ZERO_REWRITE_POLICY.md](17_ZERO_REWRITE_POLICY.md) exception (additive-in-spirit but not in literal union-widening terms, since existing consumers now see two new members to handle) because this sprint's brief named all 5 tiers explicitly.
+
+- **`PerformanceSampler.tsx`** — the real production sampler, mounted unconditionally in `CupScene` (not `NODE_ENV`-gated, unlike the DOM overlay). This closes a genuine gap `03_3D_ENGINE.md` previously left open: Sprint 2.1 built `tier`/`sampleFrame` but nothing fed them outside of `DevPanelStatsCollector`, which is dev-only — meaning adaptive quality never actually ran in a production build. One `gl.info` sample per ~500ms tick (via `useFrame`, so it correctly reflects R3F's real render rate under `frameloop="demand"`) feeds `recordPerformanceSnapshot`, `evaluateAdaptiveQuality`, and `checkGpuBudget` in one place — one producer, three consumers.
+- **`runtimeProfiler.ts`** — `PerformanceSnapshot` (`fps`, `frameTimeMs`, `drawCalls`, `triangles`, `geometries`), `Object.freeze()`'d at construction and exposed only through the `latestSnapshot` bridge store. "Every runtime metric has exactly one producer... metrics are immutable snapshots" (this sprint's stated constraint) is enforced structurally, not just by convention — a consumer that tries to mutate a snapshot throws.
+- **`adaptiveQuality.ts`** — `evaluateAdaptiveQuality(fps)`, a no-op unless `mode === "automatic"`. Asymmetric hysteresis: stepping *down* is fast (3 consecutive samples below 45 FPS, ~1.5s) to protect the user quickly; stepping *up* requires 10 consecutive samples at/above 55 FPS (~5s) before it's trusted. This is a deliberate, documented evolution of Sprint 2.1's original "never auto-step-up mid-session" rule, not a silent reversal — see [14_PERFORMANCE_STRATEGY.md](14_PERFORMANCE_STRATEGY.md) and this sprint's review for the reasoning and the real-browser CPU-throttle verification. Always steps one tier at a time, matching `QUALITY_TIER_ORDER`.
+- **`qualityPolicy.ts`** — `resolveQualityPolicy(tier)`, a pure lookup table (DPR range, shadow map size, bloom enabled/intensity multiplier, environment resolution, particle budget) per tier. "Scale, don't disable": `bloomEnabled` is `false` at exactly one tier (`minimal`); every other parameter scales continuously across all 5 tiers rather than flipping off — the literal reading of this sprint's "Adaptive Quality may reduce quality. It must never reduce correctness... Never disable a feature if it can instead scale" constraint.
+- **`gpuBudget.ts`** — `checkGpuBudget(snapshot)` compares the latest snapshot against `DRAW_CALL_BUDGET`/`TRIANGLE_BUDGET` (100 / 55,000, matching [14_PERFORMANCE_STRATEGY.md](14_PERFORMANCE_STRATEGY.md)'s table) and emits `gpu:budget-warning` on a transition into over-budget, not on every sample over budget.
+- **`memoryPressure.ts`** — `initMemoryPressureDetection()` combines `resource:evicted` rate with the `performance:degraded` signal to emit `memory:pressure`; no reliable cross-browser memory-measurement API exists (same documented limitation as Sprint 2.2's count-based cache caps), so this is a derived heuristic, not a direct measurement.
+- **`useSmoothedValue.ts`** — this sprint's Creative Budget item's mechanism: a `THREE.MathUtils.damp`-based hook (the same technique `CameraRig.tsx` established in Sprint 2.1), reused in `CupScene.tsx` to damp bloom intensity toward its tier-driven target instead of snapping on a tier change. Reduced-motion skips the transition (snap, per this project's "disable outright, don't downgrade" motion policy) rather than animating it.
+- **Quality Tier Integration** (`engine/performance/assetQuality.ts`): `TIER_OPTIONS` extended to cover all 5 tiers (`ultra` above the old `high` ceiling, `minimal` below the old `low` floor).
+
+One-directionality rule (from [15_ARCHITECTURE_FREEZE.md](15_ARCHITECTURE_FREEZE.md)) remains upheld: this module imports nothing from Effect/Shader/Material Managers — `qualityPolicy`'s output is consumed one-directionally by `CupScene.tsx`/`CupCanvas.tsx`, never the reverse.
 
 ### Debug panel (`engine/devpanel/`)
 
-`DevPanelStatsCollector` takes a generic `preset: string` (no longer imports `CameraPresetName` directly). `DevPanel` reads `devStats` (now a bridge store) and `performanceManager.tier`, displaying both. `registerDevPanel(name, render)` is a real, exercised extension point — `DevPanel` iterates and renders whatever's registered — with zero panels registered yet (the live-tweak library choice stays deferred, per [26_API_STABILITY.md](26_API_STABILITY.md)).
+`DevPanelStatsCollector` takes a generic `preset: string` (no longer imports `CameraPresetName` directly) and, since Sprint 2.5, only tracks that display-only label — the real measurements it used to sample itself now live in `runtimeProfiler.ts`'s `latestSnapshot`, produced once by the always-on `PerformanceSampler`, not sampled a second time here. `DevPanel` reads `latestSnapshot`, `performanceManager.tier`, and `performanceManager.mode`, displaying fps/frame-time/draw-calls/triangles/geometries alongside the current tier and automatic/manual mode. `registerDevPanel(name, render)` is a real, exercised extension point — `DevPanel` iterates and renders whatever's registered — with zero panels registered yet (the live-tweak library choice stays deferred, per [26_API_STABILITY.md](26_API_STABILITY.md)).
 
 ### Robustness: lost GPU context — implemented
 
@@ -64,6 +75,21 @@ Split from the old combined `LightingTheme` map into two independent, additive r
 - **No `ModelCup`/etc. component, no populated manifest entries.** Zero real `.glb`/texture/HDR files exist anywhere in `public/` — this was true before this sprint and remains true after it. Building a component that references a file path that doesn't exist would be broken code, not infrastructure. What's real and tested is the *machinery* (loader configuration, cache/lifecycle mechanics, fallback logic), verified against mocked loaders — exactly the bar [25_IMPLEMENTATION_READINESS.md](25_IMPLEMENTATION_READINESS.md) set for this sprint before any implementation happened.
 - **No hand-rolled HDR loader.** drei's `<Environment files={...}>` (already in use via `SceneEnvironment`) already lazy-loads HDR files internally (`RGBELoader`/`EXRLoader` + `PMREMGenerator`) — building a second, custom loader through `createResourceManager` would duplicate a mechanism that already works correctly, not add real capability. The seam this platform contributes is `resolveAssetQualityOptions`, ready for a future self-hosted HDR to consult when one exists.
 - **No Audio Pipeline**, despite being named in this sprint's brief. [01_ARCHITECTURE.md](01_ARCHITECTURE.md) has stated since Milestone 1 that `audio/` arrives with the milestone that first needs a real sound (ingredient-drop, checkout success) — neither exists this sprint (explicitly excluded from scope: "No Ingredient System. No Commerce."). No `IAudioManager` was ever frozen in [22_MANAGER_INTERFACES.md](22_MANAGER_INTERFACES.md) during RC0 either — building one now would mean designing and implementing a manager with zero frozen contract and zero possible real consumer in the same sprint, the exact combination this project's standards exist to prevent. See this sprint's review for the full reasoning.
+
+### Shader Manager (`engine/shaders/`) — Sprint 2.4
+
+Infrastructure, not final effects — this sprint's brief explicitly excluded the final steam simulation, coffee physics, and ingredient physics; what's real is the pipeline every one of those will eventually sit on.
+
+- **Registry/Factory** (`registry.ts`, `factory.ts`) — the same name-keyed registration pattern as `createPartRegistry`; a `ShaderDefinition` is one of two discriminated shapes: `unlit` (`create()` returns a fresh `THREE.ShaderMaterial` instance — drei's `shaderMaterial()` helper wasn't needed since nothing here is consumed declaratively via JSX, matching the existing imperative `useMemo` pattern every cup part already uses) or `physically-lit` (`apply()` mutates an existing `MeshPhysicalMaterial` via `onBeforeCompile`). `createShaderMaterial`/`applyShader` dispatch to the correct one and throw a clear error if a caller picks the wrong entry point for a given shader's path.
+- **Diagnostics** (`diagnostics.ts`) — doubles as this sprint's "Shader Cache," reframed deliberately: a per-*instance* GPU resource cache doesn't fit shader materials the way it fit Sprint 2.3's PBR materials (two steam wisps need independent `uTime`, so caching *instances* by key would be wrong); what's real and shared is compile *state* per shader *definition*, which is exactly what diagnostics needs anyway. Real emitters of `shader:compiled`/`shader:failed`.
+- **Validation** (`validation.ts`) — static/structural checks only (name, version, non-empty source, `uTime` present on unlit shaders) — real GLSL compilation needs a live WebGL context jsdom can't provide; see `DevDiagnosticsProbe.tsx` below for how that half is actually verified.
+- **Versioning + Hot Reload** (`registry.ts`'s `bumpVersion`) — real hot reload is inherited free from Next.js Fast Refresh, since shader source lives in normal `.ts` modules ([ADR-0008](adr/0008-shader-authoring-approach.md)'s whole reason for that choice); `bumpVersion` is the one piece Fast Refresh can't do alone — forcing a cache/instance keyed on `${name}@${version}` to construct fresh rather than reuse stale state, emitting `shader:reloaded`.
+- **Uniform Manager** (`common/uniforms.ts`) — a shared uniform block (`sharedUniforms`: resolution, quality tier, theme mode/color, lighting intensity, interaction state, plus `uStorytellingProgress`/`uPhysicsIntensity` typed but unpublished until Milestone 6/3) with named `publish*` functions as the *only* writers — "each uniform has exactly one owner," upheld literally. `uTime` is deliberately per-instance (`createPerInstanceUniforms`), not shared — a shared clock would make every repeated shader instance pulse in lockstep. Camera position is deliberately **not** published as a separate uniform — Three's built-in `cameraPosition` GLSL variable already covers the common view-dependent case; publishing a second source of the same data would itself violate "duplicate uniform sources are forbidden."
+- **Common utilities** (`common/`) — `noise.ts` (hash + value noise + FBM — "random generators" folded into `hash`, not a separate module), `rotation.ts`, `blending.ts`, `colorSpace.ts` (linear/sRGB, a documented gamma-2.2 approximation, not a duplicate of the JS-side exact conversion), `toneMapping.ts` (Reinhard, for self-tonemapping unlit/additive effects before Bloom), `easing.ts`.
+- **Steam** (`steam/`) — real, wired, replaces the Milestone 1 billboard+canvas-texture placeholder in `ProceduralSteam.tsx`. Single-octave `noise2D`, deliberately not the domain-warped FBM the *final* steam simulation (still Milestone 2+ per [13_SHADER_ARCHITECTURE.md](13_SHADER_ARCHITECTURE.md)) will use. The exact same rise/fade/scale animation curve as Milestone 1, unchanged — only the material changed. Falls back to the original `MeshBasicMaterial`+canvas-texture technique if shader construction throws (a real try/catch, not a placebo — see this sprint's review for the honest limit of what's synchronously catchable).
+- **Coffee & Foam** (`coffee/`, `foam/`) — a shared `applyFresnelRim` (`surfaces/applyFresnelRim.ts`) applied via `onBeforeCompile`, injected immediately before `#include <opaque_fragment>` (verified against this project's exact installed Three.js source, not assumed from memory — see the file's own doc comment). A subtle rim brighten, proving the physically-lit path compiles and renders correctly; explicitly not the tilt/ripple liquid physics or live-animated foam displacement [13_SHADER_ARCHITECTURE.md](13_SHADER_ARCHITECTURE.md) designs for later milestones. Applied only inside the Material Manager's cache factory function (a real cache *hit* never re-triggers `onBeforeCompile`, which would force a wasted recompile).
+- **Glow, Distortion, Particles** (`glow/`, `distortion/`, `particles/`) — real, registered, `unlit`-path shader definitions with zero scene consumers (no current feature needs them). Verified compiling via `DevDiagnosticsProbe.tsx`, not a production render — see below.
+- **`DevDiagnosticsProbe.tsx`** — dev-only (same `NODE_ENV !== "production"` gating as `DevPanelStatsCollector`), mounted in `CupScene`. Positions a tiny mesh per registered *unlit* shader far outside the camera frustum (not `visible={false}`, which would skip rendering — and skip compilation — entirely) so Three.js actually attempts to compile each one on first render. Registers a `"shaders"` panel via `registerDevPanel` — the Debug Overlay extension point's first real consumer since it was built in Sprint 2.1.
 
 ### Theme bridge (`engine/theme/`)
 
@@ -96,15 +122,7 @@ Moved here from `engine/graphics/MaterialFactory.ts` (mechanical relocation, zer
 
 ---
 
-## Target architecture (Sprint 2.4+, designed, not yet implemented)
-
-### Shader Manager (`engine/shaders/`, new) — Sprint 2.4
-
-`common/` utilities (noise, remap, uniform helpers) plus the real steam shader, replacing the billboard+canvas-texture placeholder. Full design in [13_SHADER_ARCHITECTURE.md](13_SHADER_ARCHITECTURE.md).
-
-### Performance Manager: adaptive stepping — Sprint 2.5
-
-The tier-stepping algorithm itself (sustained-low-FPS detection → step down; never auto-step-up mid-session), reading the `lastFps`/`tier` foundation built this sprint. Full budget detail in [14_PERFORMANCE_STRATEGY.md](14_PERFORMANCE_STRATEGY.md).
+## Target architecture (Sprint 2.6+, designed, not yet implemented)
 
 ### Day/night lighting content — Sprint 2.6
 
@@ -117,6 +135,23 @@ Deliberately not scaffolded this sprint (see retrospective in [reviews/sprint-2.
 ---
 
 ## Rendering pipeline
+
+### Stage ownership (Sprint 2.4)
+
+Finalized order, one owner per stage — no stage's job is split across two managers:
+
+| Stage | Owner | Notes |
+|---|---|---|
+| Geometry | Feature code (`features/hero-cup/geometry/`) | Not engine-owned — geometry is domain-specific per feature; the *pattern* (LatheGeometry silhouettes, TubeGeometry handles) is documented, not centralized |
+| Materials | Material Manager (`engine/materials/`) | `getOrCreateMaterial`, cached by structured key |
+| Textures | Asset Manager's texture pipeline (`engine/assets/textures.ts`) for real files; `engine/graphics/TextureLoader.ts` for canvas-generated ones | Two owners, two genuinely different sources — not a violation of "one owner per stage," since they own disjoint texture *origins*, never the same texture |
+| Uniform Binding | Shader Manager's Uniform Manager (`engine/shaders/common/uniforms.ts`) | Publishes the shared block; per-instance uniforms are owned by whichever component constructs that shader instance |
+| Lighting | Lighting Manager (`engine/lighting/`) | Resolves `LightingPresetDefinition`; also the publisher of `uLightingIntensity` into the shared uniform block |
+| Shader Execution | Shader Manager (`engine/shaders/`) | Both paths — `create()`/`apply()` |
+| Effects | Effect Manager (`engine/effects/`) | `EffectConfig[]` → `EffectComposer`; WebGL post-processing only, never DOM effects |
+| Tone Mapping | The `WebGLRenderer` default (never an explicit `<Canvas>` override — see the gotcha below) | Applied before `EffectComposer` sees the frame, not a separate late-pipeline step |
+| Bloom | Effect Manager, as one `EffectConfig` variant | Not a separate stage from "Effects" architecturally, listed separately here only because the sprint's brief named it explicitly |
+| Output | The `WebGLRenderer`/`<Canvas>` itself | Final composited frame to the DOM canvas element |
 
 ### Render loop & frameloop strategy
 
@@ -137,8 +172,9 @@ Unchanged: real-time shadow-casting reserved for the scene's primary hero object
 - **Instancing**: repeated geometry (future ingredient particles) uses `InstancedMesh`.
 - **Disposal on route change**: each route's own `Canvas` disposes its WebGL context on unmount.
 - **Frustum culling**: automatic, never disabled.
+- **Budget enforcement** (Sprint 2.5): `engine/performance/gpuBudget.ts`'s `checkGpuBudget` compares each live `PerformanceSnapshot` against the draw-call/triangle budgets below and emits `gpu:budget-warning` on a transition into over-budget.
 - Full budgets in [14_PERFORMANCE_STRATEGY.md](14_PERFORMANCE_STRATEGY.md).
 
 ## Related
 
-[16_ENGINEERING_SPRINTS.md](16_ENGINEERING_SPRINTS.md) · [reviews/sprint-2.1-review.md](reviews/sprint-2.1-review.md) · [reviews/sprint-2.2-review.md](reviews/sprint-2.2-review.md) · [reviews/sprint-2.3-review.md](reviews/sprint-2.3-review.md) · [15_ARCHITECTURE_FREEZE.md](15_ARCHITECTURE_FREEZE.md) · [17_ZERO_REWRITE_POLICY.md](17_ZERO_REWRITE_POLICY.md) · [22_MANAGER_INTERFACES.md](22_MANAGER_INTERFACES.md) · [04_MOTION_ENGINE.md](04_MOTION_ENGINE.md) · [12_INTERACTION_SYSTEM.md](12_INTERACTION_SYSTEM.md) · [13_SHADER_ARCHITECTURE.md](13_SHADER_ARCHITECTURE.md) · [14_PERFORMANCE_STRATEGY.md](14_PERFORMANCE_STRATEGY.md) · [3d-asset-pipeline.md](3d-asset-pipeline.md) · [adr/0002](adr/0002-r3f-architecture.md) · [adr/0003](adr/0003-theme-system.md) · [adr/0006](adr/0006-scene-management-strategy.md)
+[16_ENGINEERING_SPRINTS.md](16_ENGINEERING_SPRINTS.md) · [reviews/sprint-2.1-review.md](reviews/sprint-2.1-review.md) · [reviews/sprint-2.2-review.md](reviews/sprint-2.2-review.md) · [reviews/sprint-2.3-review.md](reviews/sprint-2.3-review.md) · [reviews/sprint-2.4-review.md](reviews/sprint-2.4-review.md) · [reviews/sprint-2.5-review.md](reviews/sprint-2.5-review.md) · [15_ARCHITECTURE_FREEZE.md](15_ARCHITECTURE_FREEZE.md) · [17_ZERO_REWRITE_POLICY.md](17_ZERO_REWRITE_POLICY.md) · [22_MANAGER_INTERFACES.md](22_MANAGER_INTERFACES.md) · [04_MOTION_ENGINE.md](04_MOTION_ENGINE.md) · [12_INTERACTION_SYSTEM.md](12_INTERACTION_SYSTEM.md) · [13_SHADER_ARCHITECTURE.md](13_SHADER_ARCHITECTURE.md) · [14_PERFORMANCE_STRATEGY.md](14_PERFORMANCE_STRATEGY.md) · [3d-asset-pipeline.md](3d-asset-pipeline.md) · [adr/0002](adr/0002-r3f-architecture.md) · [adr/0003](adr/0003-theme-system.md) · [adr/0006](adr/0006-scene-management-strategy.md)

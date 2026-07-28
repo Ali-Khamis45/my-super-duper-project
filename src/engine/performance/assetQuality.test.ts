@@ -1,27 +1,28 @@
 import { describe, expect, it } from "vitest";
 
+import { QUALITY_TIER_ORDER } from "./types";
 import { resolveAssetQualityOptions } from "./assetQuality";
 
 describe("resolveAssetQualityOptions", () => {
-  it("high tier allows full anisotropy and preloading", () => {
-    const options = resolveAssetQualityOptions("high");
-    expect(options.maxAnisotropy).toBe(16);
-    expect(options.preloadEnabled).toBe(true);
+  it("ultra and high tier both allow full anisotropy and preloading", () => {
+    expect(resolveAssetQualityOptions("ultra").maxAnisotropy).toBe(16);
+    expect(resolveAssetQualityOptions("high").maxAnisotropy).toBe(16);
+    expect(resolveAssetQualityOptions("high").preloadEnabled).toBe(true);
   });
 
-  it("low tier caps anisotropy to 1 and disables preloading", () => {
-    const options = resolveAssetQualityOptions("low");
+  it("minimal tier caps anisotropy to 1, the smallest texture size, and disables preloading", () => {
+    const options = resolveAssetQualityOptions("minimal");
     expect(options.maxAnisotropy).toBe(1);
     expect(options.preloadEnabled).toBe(false);
+    expect(options.maxTextureSize).toBe(256);
   });
 
-  it("tiers are strictly ordered: high >= medium >= low on every numeric option", () => {
-    const high = resolveAssetQualityOptions("high");
-    const medium = resolveAssetQualityOptions("medium");
-    const low = resolveAssetQualityOptions("low");
-    expect(high.maxAnisotropy).toBeGreaterThanOrEqual(medium.maxAnisotropy);
-    expect(medium.maxAnisotropy).toBeGreaterThanOrEqual(low.maxAnisotropy);
-    expect(high.maxTextureSize).toBeGreaterThanOrEqual(medium.maxTextureSize);
-    expect(medium.maxTextureSize).toBeGreaterThanOrEqual(low.maxTextureSize);
+  it("tiers are monotonically non-increasing across the full ultra -> minimal order on every numeric option", () => {
+    for (let i = 0; i < QUALITY_TIER_ORDER.length - 1; i++) {
+      const better = resolveAssetQualityOptions(QUALITY_TIER_ORDER[i]!);
+      const worse = resolveAssetQualityOptions(QUALITY_TIER_ORDER[i + 1]!);
+      expect(better.maxAnisotropy).toBeGreaterThanOrEqual(worse.maxAnisotropy);
+      expect(better.maxTextureSize).toBeGreaterThanOrEqual(worse.maxTextureSize);
+    }
   });
 });

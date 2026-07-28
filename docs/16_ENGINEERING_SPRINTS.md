@@ -38,23 +38,23 @@ Every sprint ends clean: `npm run build`, `tsc --noEmit`, `eslint` pass, and the
 | Test independently | 29 new unit tests (56 total project-wide including Sprints 2.1/2.2); real cache-hit verification via `vi.fn()` call-count assertions, not just instrumentation logs; hero renders identically apart from the deliberate ceramic/liquid reflection change |
 | Creative budget | **Delivered, as originally planned**: ceramic clearcoat/roughness tightened (0.15→0.12 roughness, 0.08→0.05 clearcoatRoughness) and `resolveEnvMapIntensity` calibrates ceramic/liquid reflections per lighting preset instead of a flat multiplier — real visual polish, verified via before/after headless-browser screenshots, not scope creep, since the sprint was already elbow-deep in exactly these materials |
 
-## Sprint 2.4 — Shader Infrastructure
+## Sprint 2.4 — Shader & Rendering Pipeline *(complete — see [reviews/sprint-2.4-review.md](reviews/sprint-2.4-review.md))*
 
 | | |
 |---|---|
-| Builds | Common shader utilities (`engine/shaders/common/`: `noise.ts`, `remap.ts`, `uniforms.ts`) · **Steam** shader (`engine/shaders/steam/`, full implementation — Milestone 2's headline feature, replacing the billboard placeholder) · Foam/Coffee **base** scaffolding only (shared utilities both will consume in Milestone 3 — not full foam/coffee shader implementations, which stay Milestone 3 per [08_MILESTONES.md](08_MILESTONES.md)) |
-| Depends on | Sprint 2.1 (registry, for consistency) and 2.2 (asset/shader scaffolding pattern) |
-| Test independently | Direct visual comparison against the Milestone 1 placeholder and against the specific Milestone 1 CDR critique ("steam isn't very visible/convincing"); FPS budget check against [14_PERFORMANCE_STRATEGY.md](14_PERFORMANCE_STRATEGY.md); reduced-motion still disables it exactly as before |
-| Creative budget | The steam shader itself — no byproduct needed, this sprint's core work *is* the visible improvement |
+| Builds | Shader Manager (Registry/Factory/Diagnostics/Validation, `engine/shaders/`) · Uniform Manager (shared block, single-owner publishers) · common utilities (noise/hash/fbm, rotation, blending, color space, tone mapping, easing) · placeholder shaders for all 6 named families (Steam — real, wired, replaces the Milestone 1 billboard; Coffee/Foam — shared fresnel rim via `onBeforeCompile`; Glow/Distortion/Particles — registered, zero scene consumer, compile-verified via a dev-only diagnostics probe) · Render Pipeline stage-ownership table · 2 new EventBus events |
+| Depends on | Sprint 2.1 (registry pattern, EventBus), Sprint 2.3 (Material Manager's cache factory function, where the fresnel hook is applied) |
+| Test independently | 31 new unit tests (116 total project-wide) covering registry/factory/diagnostics/validation/uniform-publishing/fresnel-injection; real compilation verified via a real browser session (zero shader-related console errors across multiple loads) — GLSL compilation itself can't be unit-tested in jsdom, same honest limitation as every prior sprint's WebGL-dependent behavior |
+| Creative budget | Steam's noise-based shader is a real, visible improvement over the flat radial-gradient placeholder (organic per-pixel variation vs. a uniform blurred circle) — explicitly *not* the final domain-warped simulation, per this sprint's "do not build final effects" constraint |
 
-## Sprint 2.5 — Performance
+## Sprint 2.5 — Runtime Optimization & Adaptive Quality *(complete — see [reviews/sprint-2.5-review.md](reviews/sprint-2.5-review.md))*
 
 | | |
 |---|---|
-| Builds | Adaptive quality tiers (Performance Manager, production FPS sampling distinct from the dev-only panel collector) · GPU budgets enforced against [14_PERFORMANCE_STRATEGY.md](14_PERFORMANCE_STRATEGY.md) · Debug overlay extension (existing `DevPanel` gains tier display) · Performance profiling conventions |
+| Builds | `QualityTier` extended 3→5 (`ultra`/`high`/`medium`/`low`/`minimal`) + `QualityMode` (`automatic`/`manual`) · `qualityPolicy.ts` (5-tier policy table — DPR, shadow map, bloom, environment resolution, particle budget; "scale, don't disable," `bloomEnabled: false` only at `minimal`) · `runtimeProfiler.ts` (frozen, single-producer `PerformanceSnapshot`) · `adaptiveQuality.ts` (asymmetric-hysteresis stepping: 3-sample fast downgrade, 10-sample slow upgrade) · `gpuBudget.ts` / `memoryPressure.ts` (budget-crossing and cache-pressure detection) · `PerformanceSampler.tsx` (the always-on, production-mounted sampler that finally feeds all of the above — closing a real gap where adaptive quality never ran outside dev builds) · `useSmoothedValue.ts` (damped bloom-intensity transitions, this sprint's Creative Budget item) · 3 new Production Telemetry Hooks in `eventBridge.ts` · 6 new EventBus events |
 | Depends on | Sprints 2.1-2.4 having landed (needs real scene complexity — the steam shader at minimum — for a meaningful budget to test against) |
-| Test independently | Chrome DevTools CPU throttling forces a sustained low-FPS session; tier steps down exactly once, doesn't thrash, doesn't auto-recover mid-session |
-| Creative budget | Framed honestly as UX smoothness rather than a new visual flourish: lower-end devices get a genuinely better experience (steam degrading gracefully to the retained Milestone 1 technique, per [15_ARCHITECTURE_FREEZE.md](15_ARCHITECTURE_FREEZE.md) scenario 12) instead of stuttering — a real, noticeable improvement for a real class of users, which counts |
+| Test independently | 30 new unit tests (146 total project-wide) covering the policy table, hysteresis edge cases, GPU budget crossing/reset, and memory pressure combination logic; real-browser CPU-throttle stress test (headless Chrome, 25x throttling via CDP `Emulation.setCPUThrottlingRate`) confirmed the live tier stepping `ultra → high → medium → low → minimal`, one step at a time, matching the fast-downgrade cadence, with exactly one recovery step observed in an 8s post-throttle window, matching the slow-upgrade cadence — see the review for the full trace |
+| Creative budget | Delivered: bloom intensity damps toward its tier-driven target (`THREE.MathUtils.damp`, the same technique `CameraRig.tsx` established in Sprint 2.1) instead of snapping on a tier change — a real, verified reduction in visible popping during adaptation, not a new visual flourish |
 
 ## Sprint 2.6 — Integration & QA
 

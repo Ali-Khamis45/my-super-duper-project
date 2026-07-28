@@ -19,9 +19,11 @@ export interface AssetQualityOptions {
 }
 
 const TIER_OPTIONS: Record<QualityTier, AssetQualityOptions> = {
+  ultra: { maxAnisotropy: 16, maxTextureSize: 2048, preloadEnabled: true },
   high: { maxAnisotropy: 16, maxTextureSize: 2048, preloadEnabled: true },
   medium: { maxAnisotropy: 8, maxTextureSize: 1024, preloadEnabled: true },
   low: { maxAnisotropy: 1, maxTextureSize: 512, preloadEnabled: false },
+  minimal: { maxAnisotropy: 1, maxTextureSize: 256, preloadEnabled: false },
 };
 
 export function resolveAssetQualityOptions(tier: QualityTier): AssetQualityOptions {

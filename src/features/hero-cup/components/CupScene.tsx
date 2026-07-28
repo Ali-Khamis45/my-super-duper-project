@@ -9,7 +9,12 @@ import { resolveEnvironmentPreset } from "@/engine/environment/presets";
 import { SceneEnvironment } from "@/engine/graphics/EnvironmentFactory";
 import { resolveLightingPreset } from "@/engine/lighting/presets";
 import { notifyThemeMaterialsUpdated } from "@/engine/materials";
+import { performanceManager } from "@/engine/performance";
+import { PerformanceSampler } from "@/engine/performance/PerformanceSampler";
+import { resolveQualityPolicy } from "@/engine/performance/qualityPolicy";
+import { useSmoothedValue } from "@/engine/performance/useSmoothedValue";
 import type { SceneCompositionRoot } from "@/engine/scene/types";
+import { ShaderDiagnosticsProbe } from "@/engine/shaders/DevDiagnosticsProbe";
 import { creamColor, espressoColor } from "@/engine/theme/ColorSchemes";
 import { useActiveTheme } from "@/engine/theme/ThemeEngine";
 import { themeToPresetMap } from "@/engine/theme/LightingThemes";
@@ -24,6 +29,8 @@ export function CupScene() {
   const lightingPreset = resolveLightingPreset(lightingPresetName);
   const reducedMotion = usePrefersReducedMotion();
   const parallaxSource = useMouseParallax();
+  const tier = performanceManager.tier.useValue();
+  const qualityPolicy = resolveQualityPolicy(tier);
 
   // Batch signal for a future Debug Overlay/Analytics consumer — the
   // individual `material:created`/`material:updated` events already fire
@@ -33,6 +40,19 @@ export function CupScene() {
     notifyThemeMaterialsUpdated(theme);
   }, [theme]);
 
+  // Sprint 2.5's Creative Budget item: bloom intensity — a plain float,
+  // cheap to interpolate and the parameter most visibly affected by a tier
+  // change — damps toward its tier-driven target instead of snapping.
+  // Reduced motion skips the transition entirely (snap, per this project's
+  // "disable outright, don't downgrade" policy) rather than animating it.
+  const bloomTarget = qualityPolicy.bloomEnabled ? lightingPreset.bloom.intensity * qualityPolicy.bloomIntensityMultiplier : 0;
+  // The hook's own useFrame subscription still runs under reduced motion
+  // (cheap, and CameraRig's `enabled` prop is the actual place ambient
+  // motion gets disabled) — its damped output is simply not read below,
+  // so reduced-motion users see the target value directly, unsmoothed.
+  const smoothedBloomIntensity = useSmoothedValue(bloomTarget, 6);
+  const bloomIntensity = reducedMotion ? bloomTarget : smoothedBloomIntensity;
+
   // Structurally checked against the frozen Scene Composition contract
   // (docs/22_MANAGER_INTERFACES.md) rather than left as ad hoc props — a
   // future route's composition root satisfies the same shape.
@@ -41,7 +61,10 @@ export function CupScene() {
     camera: "hero",
     environment,
     lighting: lightingPresetName,
-    effects: [{ type: "bloom", intensity: lightingPreset.bloom.intensity, threshold: lightingPreset.bloom.threshold }],
+    effects:
+      qualityPolicy.bloomEnabled || bloomIntensity > 0
+        ? [{ type: "bloom", intensity: bloomIntensity, threshold: lightingPreset.bloom.threshold }]
+        : [],
   };
   const environmentPreset = resolveEnvironmentPreset(sceneConfig.environment);
 
@@ -67,14 +90,18 @@ export function CupScene() {
         position={lightingPreset.directional.position}
         intensity={lightingPreset.directional.intensity}
         castShadow
-        shadow-mapSize={[2048, 2048]}
+        shadow-mapSize={[qualityPolicy.shadowMapSize, qualityPolicy.shadowMapSize]}
       />
       <CupAssembly reducedMotion={reducedMotion} />
       <EffectsStack effects={sceneConfig.effects} />
-      {/* Never in production — the DOM overlay it feeds is already
-          production-gated (DevPanel.tsx); this useFrame loop shouldn't run
-          in a build no one can see the output of either. */}
+      {/* Always mounted, including production — the session it protects
+          most is exactly the struggling-device production session. See
+          docs/14_PERFORMANCE_STRATEGY.md and PerformanceSampler.tsx. */}
+      <PerformanceSampler />
+      {/* Dev-only from here down — the DOM overlay these feed is already
+          production-gated (DevPanel.tsx). */}
       {process.env.NODE_ENV !== "production" && <DevPanelStatsCollector preset={sceneConfig.camera} />}
+      {process.env.NODE_ENV !== "production" && <ShaderDiagnosticsProbe />}
     </>
   );
 }

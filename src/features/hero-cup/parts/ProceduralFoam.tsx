@@ -3,6 +3,7 @@ import * as THREE from "three";
 import type { Group } from "three";
 
 import { createFoamMaterial, getOrCreateMaterial, updateMaterialColor, updateMaterialParams } from "@/engine/materials";
+import { applyFoamSurface } from "@/engine/shaders/foam/FoamSurface";
 import { creamColor } from "@/engine/theme/ColorSchemes";
 
 import { createFoamGeometry } from "../geometry/cupGeometry";
@@ -24,11 +25,18 @@ export const ProceduralFoam = forwardRef<Group, CupPartProps>(function Procedura
       const mat = createFoamMaterial(colorObj);
       updateMaterialParams(mat, "foam", materialOverrides);
       if (materialOverrides.color) updateMaterialColor(mat, new THREE.Color(materialOverrides.color));
+      applyFoamSurface(mat);
       return mat;
     }
 
+    // applyFoamSurface runs inside the factory — only on a real cache miss,
+    // same reasoning as ProceduralCoffee.
     const colorHex = `#${colorObj.getHexString()}`;
-    return getOrCreateMaterial({ surface: "foam", colorHex }, () => createFoamMaterial(colorObj)) as THREE.MeshPhysicalMaterial;
+    return getOrCreateMaterial({ surface: "foam", colorHex }, () => {
+      const mat = createFoamMaterial(colorObj);
+      applyFoamSurface(mat);
+      return mat;
+    }) as THREE.MeshPhysicalMaterial;
   }, [materialOverrides]);
 
   return (

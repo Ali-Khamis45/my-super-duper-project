@@ -1,5 +1,6 @@
 import type { CameraPresetName } from "@/engine/camera/presets";
 import type { LightingPresetName } from "@/engine/lighting/presets";
+import type { QualityTier } from "@/engine/performance/types";
 import type { ThemeName } from "@/engine/theme/ThemeEngine";
 
 /**
@@ -15,7 +16,13 @@ export type AppEvent =
   | { name: "camera:transition-complete"; preset: CameraPresetName }
   | { name: "theme:changed"; to: ThemeName }
   | { name: "lighting:changed"; preset: LightingPresetName }
-  | { name: "performance:tier-changed"; tier: "high" | "medium" | "low"; previous: "high" | "medium" | "low" }
+  | { name: "performance:tier-changed"; tier: QualityTier; previous: QualityTier }
+  | { name: "quality:auto-changed"; tier: QualityTier; previous: QualityTier }
+  | { name: "performance:degraded"; fps: number }
+  | { name: "performance:recovered"; fps: number }
+  | { name: "gpu:budget-warning"; metric: string; value: number; budget: number }
+  | { name: "memory:pressure"; reason: string }
+  | { name: "shader:compile-time-warning"; shader: string; compileTimeMs: number }
   | { name: "webgl:context-lost" }
   | { name: "webgl:context-restored" }
   | { name: "interaction:started"; gesture: string; pointerKind: string }
@@ -35,6 +42,8 @@ export type AppEvent =
   | { name: "theme:materials-updated"; to: ThemeName }
   | { name: "shader:compiled"; shader: string }
   | { name: "shader:failed"; shader: string; error: string }
+  | { name: "shader:reloaded"; shader: string }
+  | { name: "uniform:updated"; uniform: string }
   | { name: "ai:recommendation-ready"; recommendationId: string }
   | { name: "checkout:started"; cartTotal: number }
   | { name: "checkout:completed"; orderId: string };
