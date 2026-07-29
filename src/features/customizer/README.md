@@ -19,6 +19,8 @@ customizer/
 
 Selection state lives in `stores/customizer-store.ts` (project-root `stores/`, not inside this feature folder) — a dedicated Zustand store, per this sprint's explicit "build a dedicated customization state, do not modify engine stores" instruction, `sessionStorage`-persisted ("persist only session state").
 
+**Sprint 3.3**: `CustomizerPanel` also renders `features/composer/`'s `ComposerSection` — the Drink Composer (ingredient library, layer stack, recipe summary) lives in its own feature folder, not inside `customizer/`, but shares this same store (`ingredients`/`baseDrinkId`/`baseDrinkCategory` fields, added to `CustomizerSelection`/`CustomizerStoreState` this sprint) and the same undo/redo history. `CustomizerExperience` also gained a `drinkId?: string` prop (from `/customize?drink=<id>`, resolved via `features/menu/data/drinks.ts`'s `resolveDrink`) and a drag-and-drop zone on the canvas wrapper for the composer's drag-to-add path.
+
 ## Flow
 
 1. `app/customize/page.tsx` renders `CustomizerExperience` (client — needs the Zustand store from first render).
@@ -32,7 +34,8 @@ Selection state lives in `stores/customizer-store.ts` (project-root `stores/`, n
 - **This feature owns**: the customization selection state, the six data catalogs, the selection-to-`CupPartProps` mapping, its own panel UI and analytics events.
 - **This feature borrows from `engine/`/`design-system/`**: `GlowCard`-adjacent primitives (`Button`/`Input`/`Tooltip`/`Separator`), `usePrefersReducedMotion`, `track()`/`appEvents`.
 - **This feature borrows from `features/hero-cup/`**: the entire 3D rendering pipeline (`CupCanvasLoader` → `CupCanvas` → `CupScene` → `CupAssembly` → parts) — reused via its now-optional override props, not forked or duplicated.
-- **This feature does not own**: the 3D cup's geometry, materials, or interaction mechanics (drag-rotate, keyboard control, touch, WebGL context recovery) — all inherited unchanged from `hero-cup`.
+- **This feature borrows from `features/composer/`** (Sprint 3.3): `ComposerSection`, rendered inside `CustomizerPanel` — the recipe/ingredient UI is that feature's own, this one only hosts it and supplies the drag-and-drop zone + the resolved `ingredientLayers` passed into `CustomizerCanvas`.
+- **This feature does not own**: the 3D cup's geometry, materials, or interaction mechanics (drag-rotate, keyboard control, touch, WebGL context recovery) — all inherited unchanged from `hero-cup`. Ingredient/recipe data and rules belong to `features/composer/`, not here.
 
 ## Known simplifications
 

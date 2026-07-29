@@ -23,11 +23,10 @@ interface DrinkDetailDialogProps {
 /**
  * The sitemap's Menu → Product Detail node (`docs/strategy/sitemap.md`),
  * scoped to what Sprint 3.1 (Product Catalog Experience) actually calls
- * for — a real detail view, not a full routed product page, which stays
- * out of scope until the Live Cup Customizer (Sprint 3.2) gives "Customize
- * this drink" somewhere real to go. The CTA below links to `/customize`,
- * which is still its Milestone-4-era placeholder — an honest link to a
- * real future page, not a dead end invented for this dialog.
+ * for — a real detail view, not a full routed product page. The CTA links
+ * to `/customize?drink=<id>` — since Sprint 3.3, a real query param the
+ * composer reads to know which drink (and its category, for ingredient
+ * compatibility rules) is being customized, not just a static href.
  */
 export function DrinkDetailDialog({ drink, onOpenChange }: DrinkDetailDialogProps) {
   const category = drink ? resolveCategory(drink.category) : null;
@@ -54,7 +53,7 @@ export function DrinkDetailDialog({ drink, onOpenChange }: DrinkDetailDialogProp
               <span className="text-muted-foreground text-xs">{drink.tags.join(" · ")}</span>
             </div>
             <DialogFooter>
-              <Button variant="outline" nativeButton={false} render={<Link href="/customize" />}>
+              <Button variant="outline" nativeButton={false} render={<Link href={`/customize?drink=${drink.id}`} />}>
                 Customize this drink
               </Button>
             </DialogFooter>

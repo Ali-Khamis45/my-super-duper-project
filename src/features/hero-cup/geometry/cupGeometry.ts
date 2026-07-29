@@ -32,6 +32,28 @@ export function createHandleGeometry(): THREE.TubeGeometry {
   return new THREE.TubeGeometry(curve, 32, 0.045, 12, false);
 }
 
+/**
+ * Sprint 3.3 — the shared shape every "ring-style" ingredient layer
+ * (foam-topping/cream/chocolate/caramel/cinnamon/ice/milk/syrup) renders
+ * as. A deliberate, honest simplicity choice, the same category as steam
+ * starting as flat billboard planes (docs/3d-asset-pipeline.md) rather
+ * than a bespoke geometry per ingredient: one real, shared, reusable donut
+ * shape, differentiated per ingredient purely by color/height/thickness —
+ * not a placeholder never meant to be looked at again, but not pretending
+ * to be 8 individually sculpted forms either. Sprinkles is the one
+ * ingredient this sprint gives a genuinely distinct shape to
+ * (`createSprinkleGeometry`), since a flat ring reads as visibly wrong for
+ * scattered discrete sprinkles in a way it doesn't for a drizzle or dusting.
+ */
+export function createIngredientRingGeometry(radius: number, thickness: number): THREE.TorusGeometry {
+  return new THREE.TorusGeometry(radius, thickness, 10, 32);
+}
+
+/** One tiny, cheap, low-poly sphere — meant to be instanced many times (`ProceduralIngredientSprinkles.tsx`), never created per-instance. */
+export function createSprinkleGeometry(): THREE.SphereGeometry {
+  return new THREE.SphereGeometry(0.015, 6, 6);
+}
+
 /** A subtly irregular disc — foam's outer edge perturbed so it doesn't read as a flat cut-out. */
 export function createFoamGeometry(radius: number): THREE.CircleGeometry {
   const geometry = new THREE.CircleGeometry(radius, 48);

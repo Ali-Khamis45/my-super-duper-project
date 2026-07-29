@@ -4,6 +4,11 @@ import { CustomizerExperience } from "@/features/customizer/components/Customize
 
 export const metadata: Metadata = { title: "Customize" };
 
-export default function CustomizePage() {
-  return <CustomizerExperience />;
+interface CustomizePageProps {
+  searchParams: Promise<{ drink?: string }>;
+}
+
+export default async function CustomizePage({ searchParams }: CustomizePageProps) {
+  const { drink } = await searchParams;
+  return <CustomizerExperience drinkId={drink} />;
 }

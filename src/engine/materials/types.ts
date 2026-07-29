@@ -10,7 +10,7 @@ import type { ThemeName } from "@/engine/theme/ThemeEngine";
  * no possible consumer (contrast the Audio Pipeline decision in
  * docs/reviews/sprint-2.2-review.md).
  */
-export type MaterialSurface = "ceramic" | "sleeve" | "lid" | "liquid" | "foam" | "glass" | "metal";
+export type MaterialSurface = "ceramic" | "sleeve" | "lid" | "liquid" | "foam" | "glass" | "metal" | "ingredient";
 
 /**
  * Frozen in docs/22_MANAGER_INTERFACES.md's `IMaterialManager` entry — a

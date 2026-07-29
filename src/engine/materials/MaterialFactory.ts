@@ -57,6 +57,11 @@ export function createMetalMaterial(color: THREE.Color, overrides?: Partial<Surf
   return buildMaterial("metal", color, overrides);
 }
 
+/** Sprint 3.3 — the shared factory every ring-style ingredient layer's material is created through. */
+export function createIngredientMaterial(color: THREE.Color, overrides?: Partial<SurfaceParams>) {
+  return buildMaterial("ingredient", color, overrides);
+}
+
 const SURFACE_FACTORIES: Record<MaterialSurface, typeof createCeramicMaterial> = {
   ceramic: createCeramicMaterial,
   liquid: createLiquidMaterial,
@@ -65,6 +70,7 @@ const SURFACE_FACTORIES: Record<MaterialSurface, typeof createCeramicMaterial> =
   lid: createLidMaterial,
   glass: createGlassMaterial,
   metal: createMetalMaterial,
+  ingredient: createIngredientMaterial,
 };
 
 export function createSurfaceMaterial(surface: MaterialSurface, color: THREE.Color, overrides?: Partial<SurfaceParams>) {

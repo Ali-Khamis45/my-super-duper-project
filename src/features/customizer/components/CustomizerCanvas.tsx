@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 
+import { resolveIngredientLayers } from "@/features/composer/lib/resolveIngredientLayers";
 import { CupCanvasLoader } from "@/features/hero-cup/components/CupCanvasLoader";
 import { useCustomizerStore } from "@/stores/customizer-store";
 
@@ -16,6 +17,9 @@ import { resolvePartOverrides } from "../lib/resolvePartOverrides";
  * The effective look is `selection` with any active hover/focus `preview`
  * merged on top — "Preview Before Commit": the 3D cup always reflects what
  * you're currently pointing at or focused on, not just what's committed.
+ * Ingredient layers (Sprint 3.3) have no hover-preview concept of their own
+ * — adding/removing/reordering is always a direct commit — so they're
+ * resolved from `selection` alone, never `preview`.
  */
 export function CustomizerCanvas() {
   const selection = useCustomizerStore((state) => state.selection);
@@ -23,6 +27,14 @@ export function CustomizerCanvas() {
 
   const effective = useMemo(() => ({ ...selection, ...preview }), [selection, preview]);
   const { partOverrides, cupScale } = useMemo(() => resolvePartOverrides(effective), [effective]);
+  const ingredientLayers = useMemo(() => resolveIngredientLayers(selection.ingredients), [selection.ingredients]);
 
-  return <CupCanvasLoader partOverrides={partOverrides} cupScale={cupScale} route="/customize" />;
+  return (
+    <CupCanvasLoader
+      partOverrides={partOverrides}
+      cupScale={cupScale}
+      ingredientLayers={ingredientLayers}
+      route="/customize"
+    />
+  );
 }

@@ -142,3 +142,8 @@ export const drinks: Drink[] = [
     tags: ["light", "caffeine-free option"],
   },
 ];
+
+/** Sprint 3.3's first real caller — `/customize?drink=<id>` resolves against this to know which drink (and category, for the composer's ingredient compatibility rules) is being customized. */
+export function resolveDrink(id: string): Drink | undefined {
+  return drinks.find((entry) => entry.id === id);
+}

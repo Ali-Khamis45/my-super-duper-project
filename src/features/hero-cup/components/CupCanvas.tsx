@@ -16,7 +16,7 @@ import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 import { useCupKeyboardTrigger } from "../hooks/useCupKeyboardControls";
 import { useWebGLContextRecovery } from "../hooks/useWebGLContextRecovery";
 import { useWebGLSupport } from "../hooks/useWebGLSupport";
-import type { CupPartName, CupPartProps } from "../registry/types";
+import type { CupPartName, CupPartProps, ResolvedIngredientLayer } from "../registry/types";
 import { CupScene } from "./CupScene";
 import { CupStaticFallback } from "./CupStaticFallback";
 
@@ -28,6 +28,8 @@ interface CupCanvasProps {
   /** Sprint 3.2 — threaded straight through to `CupScene`/`CupAssembly`. `undefined` for the Hero route (the only caller before this sprint), so its rendering is byte-for-byte unchanged. */
   partOverrides?: Partial<Record<CupPartName, CupPartProps>>;
   cupScale?: number;
+  /** Sprint 3.3 — threaded straight through. */
+  ingredientLayers?: ResolvedIngredientLayer[];
   route?: string;
 }
 
@@ -44,7 +46,7 @@ interface CupCanvasProps {
  * layered on top instead, and the (invisible, still-listening) Canvas
  * underneath is what lets a real restoration actually be caught.
  */
-export default function CupCanvas({ partOverrides, cupScale, route }: CupCanvasProps = {}) {
+export default function CupCanvas({ partOverrides, cupScale, ingredientLayers, route }: CupCanvasProps = {}) {
   const webglSupported = useWebGLSupport();
   const reducedMotion = usePrefersReducedMotion();
   const { contextLost, handleCreated } = useWebGLContextRecovery();
@@ -111,7 +113,7 @@ export default function CupCanvas({ partOverrides, cupScale, route }: CupCanvasP
         onCreated={onCreated}
       >
         <Suspense fallback={null}>
-          <CupScene partOverrides={partOverrides} cupScale={cupScale} route={route} />
+          <CupScene partOverrides={partOverrides} cupScale={cupScale} ingredientLayers={ingredientLayers} route={route} />
         </Suspense>
       </Canvas>
     </div>

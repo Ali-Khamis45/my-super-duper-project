@@ -8,7 +8,7 @@ import { float } from "@/engine/motion/presets";
 
 import { useCupInteractionState } from "../hooks/useCupInteractionState";
 import { CUP_PART_ORDER, resolveCupPart } from "../registry/cupPartRegistry";
-import type { CupPartName, CupPartProps } from "../registry/types";
+import type { CupPartName, CupPartProps, ResolvedIngredientLayer } from "../registry/types";
 
 interface CupAssemblyProps {
   reducedMotion: boolean;
@@ -25,6 +25,15 @@ interface CupAssemblyProps {
   partOverrides?: Partial<Record<CupPartName, CupPartProps>>;
   /** Overall assembly scale — cup size variants. Defaults to 1 (unchanged Hero-route sizing) when omitted. */
   scale?: number;
+  /**
+   * Sprint 3.3 — zero-to-many resolved ingredient layers, rendered after
+   * `CUP_PART_ORDER`'s fixed parts. Unlike `partOverrides` (one override
+   * per fixed slot), this is a dynamic-length list — `features/composer/`
+   * decides how many, this component just renders what it's given, in the
+   * order given (stacking order is the caller's decision, expressed via
+   * each entry's own `position`).
+   */
+  ingredientLayers?: ResolvedIngredientLayer[];
 }
 
 /** Ambient auto-spin while idle, in rad/s — pauses on hover, resumes after inertia settles. */
@@ -38,7 +47,7 @@ const IDLE_FLOAT_AMPLITUDE = 0.06;
  * individual parts (steam) still animate independently in their own
  * useFrame. See docs/state-machine.md.
  */
-export function CupAssembly({ reducedMotion, partOverrides, scale }: CupAssemblyProps) {
+export function CupAssembly({ reducedMotion, partOverrides, scale, ingredientLayers }: CupAssemblyProps) {
   const groupRef = useRef<Group>(null);
   const { state, rotationYRef, bind } = useCupInteractionState({ disableInertia: reducedMotion });
 
@@ -71,6 +80,10 @@ export function CupAssembly({ reducedMotion, partOverrides, scale }: CupAssembly
             materialOverrides={override?.materialOverrides}
           />
         );
+      })}
+      {ingredientLayers?.map(({ key, partName, ...layerProps }) => {
+        const Part = resolveCupPart(partName);
+        return <Part key={key} {...layerProps} />;
       })}
     </group>
   );

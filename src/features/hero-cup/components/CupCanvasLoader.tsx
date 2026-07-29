@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 
-import type { CupPartName, CupPartProps } from "../registry/types";
+import type { CupPartName, CupPartProps, ResolvedIngredientLayer } from "../registry/types";
 import { CupStaticFallback } from "./CupStaticFallback";
 
 // `ssr: false` is only permitted inside a Client Component in Next.js 16 —
@@ -17,9 +17,13 @@ interface CupCanvasLoaderProps {
   /** Sprint 3.2 — `features/customizer/` is this prop's first real caller; the Hero route passes nothing, unchanged. */
   partOverrides?: Partial<Record<CupPartName, CupPartProps>>;
   cupScale?: number;
+  /** Sprint 3.3 — `features/composer/` is this prop's first real caller. */
+  ingredientLayers?: ResolvedIngredientLayer[];
   route?: string;
 }
 
-export function CupCanvasLoader({ partOverrides, cupScale, route }: CupCanvasLoaderProps = {}) {
-  return <CupCanvas partOverrides={partOverrides} cupScale={cupScale} route={route} />;
+export function CupCanvasLoader({ partOverrides, cupScale, ingredientLayers, route }: CupCanvasLoaderProps = {}) {
+  return (
+    <CupCanvas partOverrides={partOverrides} cupScale={cupScale} ingredientLayers={ingredientLayers} route={route} />
+  );
 }

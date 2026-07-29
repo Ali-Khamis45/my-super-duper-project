@@ -2,6 +2,7 @@ export {
   createCeramicMaterial,
   createFoamMaterial,
   createGlassMaterial,
+  createIngredientMaterial,
   createLidMaterial,
   createLiquidMaterial,
   createMetalMaterial,

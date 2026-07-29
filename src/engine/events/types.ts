@@ -51,6 +51,11 @@ export type AppEvent =
   | { name: "customizer:closed" }
   | { name: "variant:selected"; category: string; variantId: string; via: "click" | "keyboard" }
   | { name: "preset:applied"; presetId: string }
-  | { name: "preset:reset" };
+  | { name: "preset:reset" }
+  | { name: "ingredient:added"; ingredientId: string }
+  | { name: "ingredient:removed"; ingredientId: string }
+  | { name: "ingredient:updated"; ingredientId: string; quantity: number }
+  | { name: "ingredient:reordered"; ingredientId: string; direction: "up" | "down" }
+  | { name: "recipe:changed"; ingredientCount: number };
 
 export type AppEventName = AppEvent["name"];

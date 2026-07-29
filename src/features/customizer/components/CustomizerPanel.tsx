@@ -1,6 +1,7 @@
 "use client";
 
 import { Separator } from "@/components/ui/separator";
+import { ComposerSection } from "@/features/composer/components/ComposerSection";
 import { useCustomizerStore } from "@/stores/customizer-store";
 import type { CustomizerCategory, CustomizerSelection } from "@/stores/customizer-store";
 
@@ -65,6 +66,8 @@ export function CustomizerPanel() {
       <VariantSwatchGroup legend="Lid" options={LID_VARIANTS} selectedId={selection.lid} previewId={previewFor("lid")} {...makeHandlers("lid")} />
       <VariantSwatchGroup legend="Logo" options={LOGO_VARIANTS} selectedId={selection.logo} previewId={previewFor("logo")} {...makeHandlers("logo")} />
       <VariantSwatchGroup legend="Material" options={MATERIAL_OPTIONS} selectedId={selection.material} previewId={previewFor("material")} {...makeHandlers("material")} />
+
+      <ComposerSection />
 
       <Separator />
       <PresetSaveControls />

@@ -54,7 +54,13 @@ test("selecting a drink opens its detail dialog with matching content", async ({
   // the underlying rendered tag (an <a> here, via `render={<Link .../>}`) —
   // the same convention as the existing "Order Now" hero CTA, confirmed by
   // inspecting the live accessibility tree, not assumed.
-  await expect(dialog.getByRole("button", { name: /customize this drink/i })).toHaveAttribute("href", "/customize");
+  // Sprint 3.3 wired the real drink id into this link's query string so the
+  // composer's "strict rules" have a real base-drink category to check
+  // against — `?drink=classic-espresso`, not a bare `/customize`.
+  await expect(dialog.getByRole("button", { name: /customize this drink/i })).toHaveAttribute(
+    "href",
+    "/customize?drink=classic-espresso",
+  );
 
   await page.keyboard.press("Escape");
   await expect(dialog).not.toBeVisible();

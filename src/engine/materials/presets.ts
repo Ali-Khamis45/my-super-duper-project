@@ -17,4 +17,6 @@ export const SURFACE_PRESETS: Record<MaterialSurface, SurfaceParams> = {
   lid: { roughness: 0.25, metalness: 0, clearcoat: 0.6, clearcoatRoughness: 0.2, transmission: 0.05 },
   glass: { roughness: 0.02, metalness: 0, transmission: 0.95, clearcoat: 1, clearcoatRoughness: 0.02 },
   metal: { roughness: 0.3, metalness: 1, clearcoat: 0 },
+  /** Sprint 3.3 — a glossy-drizzle-ish default (low roughness, a hint of clearcoat) every ring-style ingredient layer starts from; `resolveIngredientLayers` overrides `color` per ingredient, never these finish values, so all 8 ring ingredients share one consistent sheen. */
+  ingredient: { roughness: 0.2, metalness: 0, clearcoat: 0.5, clearcoatRoughness: 0.15 },
 };

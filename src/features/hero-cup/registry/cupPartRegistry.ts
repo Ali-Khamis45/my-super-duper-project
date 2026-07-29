@@ -4,6 +4,8 @@ import { ProceduralContactShadow } from "../parts/ProceduralContactShadow";
 import { ProceduralCoffee } from "../parts/ProceduralCoffee";
 import { ProceduralCup } from "../parts/ProceduralCup";
 import { ProceduralFoam } from "../parts/ProceduralFoam";
+import { ProceduralIngredientRing } from "../parts/ProceduralIngredientRing";
+import { ProceduralIngredientSprinkles } from "../parts/ProceduralIngredientSprinkles";
 import { ProceduralLid } from "../parts/ProceduralLid";
 import { ProceduralLogo } from "../parts/ProceduralLogo";
 import { ProceduralSleeve } from "../parts/ProceduralSleeve";
@@ -26,6 +28,12 @@ cupPartRegistry.register("foam", "procedural", ProceduralFoam);
 cupPartRegistry.register("lid", "procedural", ProceduralLid);
 cupPartRegistry.register("logo", "procedural", ProceduralLogo);
 cupPartRegistry.register("steam", "procedural", ProceduralSteam);
+// Sprint 3.3 — registered like every other part, but not in CUP_PART_ORDER
+// below: these render zero-to-many times per frame (once per active
+// ingredient layer), resolved and instantiated dynamically by CupAssembly
+// via its `ingredientLayers` prop, not once per fixed slot.
+cupPartRegistry.register("ingredient-ring", "procedural", ProceduralIngredientRing);
+cupPartRegistry.register("ingredient-sprinkles", "procedural", ProceduralIngredientSprinkles);
 
 export const resolveCupPart = cupPartRegistry.resolve;
 

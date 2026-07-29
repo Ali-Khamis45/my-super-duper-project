@@ -15,6 +15,8 @@ hero-cup/
 │   ├── CupStaticFallback.tsx  real SVG fallback (no WebGL / not yet hydrated)
 │   └── HeroCopy.tsx        "use client" — headline/CTA, entrance + magnetic/pop motion
 ├── parts/Procedural{Cup,Lid,Sleeve,Coffee,Foam,Steam,Logo,ContactShadow}.tsx
+│   ├── ProceduralIngredientRing.tsx       Sprint 3.3 — shared shape for 8 of 9 ingredient types
+│   ├── ProceduralIngredientSprinkles.tsx  Sprint 3.3 — the one ingredient with real distinct geometry
 │   └── model/               empty — future GLB-backed parts land here
 ├── registry/{types,cupPartRegistry}.ts   the CupPartProps contract + registry
 ├── geometry/{cupProfile,cupGeometry}.ts  hand-authored silhouettes + builders
@@ -28,13 +30,15 @@ An earlier draft (Milestone 1) added a `lib/cupConfig.ts` default-config placeho
 
 **Sprint 3.2**: `CupAssembly`/`CupScene`/`CupCanvas`/`CupCanvasLoader` all gained optional `partOverrides`/`cupScale`/`route` props, threaded straight through the chain. Every prop is `undefined` for the Hero route (the only caller before this sprint), so its rendering is unchanged — verified via that route's own full e2e suite, including a pixel-diff visual-regression baseline, re-run and passed after this change. `features/customizer/`'s `resolvePartOverrides` is the only real producer of non-empty values; this feature has zero knowledge of what a "customizer" is, it just applies whatever `CupPartProps` it's handed, the same contract every part already implemented.
 
+**Sprint 3.3**: the same pattern, one layer further. `CupAssembly` gained an optional `ingredientLayers?: ResolvedIngredientLayer[]` prop (threaded through `CupScene`/`CupCanvas`/`CupCanvasLoader`, same as `partOverrides`), rendered dynamically after the fixed `CUP_PART_ORDER` parts rather than added to that order — an ingredient layer's count and identity vary at runtime, unlike the cup's always-present 8 parts. `registry/types.ts`'s `CupPartName` gained two entries (`ingredient-ring`/`ingredient-sprinkles`); `MaterialSurface` gained `"ingredient"`. `features/composer/lib/resolveIngredientLayers.ts` is the only real producer of non-empty values, exactly mirroring `resolvePartOverrides`'s role for Sprint 3.2 — this feature still has zero knowledge of what an "ingredient" or "composer" is.
+
 ## Flow
 
 1. `app/page.tsx` renders `Hero` (Server Component); `app/customize/page.tsx` renders `features/customizer/`'s `CustomizerExperience`, which uses `CupCanvasLoader` the same way, with real override props.
 2. `Hero`/`CustomizerExperience` render `CupCanvasLoader` (client, dynamic-imports `CupCanvas` with `ssr: false`) — split from any server-rendered parent specifically because `ssr: false` is only legal inside a Client Component in Next.js 16.
 3. `CupCanvas` probes WebGL (`useWebGLSupport`); if unavailable, renders `CupStaticFallback` instead of mounting `<Canvas>`. It's also `tabIndex`-focusable with a keydown handler (`useCupKeyboardControls`) — Left/Right rotates the cup for keyboard-only users, since drag has no keyboard equivalent otherwise.
 4. Inside `<Canvas>`, `CupScene` reads the active theme (`engine/theme`), composes `CameraRig`, lighting, `SceneEnvironment`, `CupAssembly`, and `EffectsStack`.
-5. `CupAssembly` resolves all 8 parts via `resolveCupPart`, renders them in `CUP_PART_ORDER`, and owns idle-float + the interaction-driven rotation from `useCupInteractionState` + the overall `scale` (cup size variants, Sprint 3.2).
+5. `CupAssembly` resolves all 8 parts via `resolveCupPart`, renders them in `CUP_PART_ORDER`, and owns idle-float + the interaction-driven rotation from `useCupInteractionState` + the overall `scale` (cup size variants, Sprint 3.2). If `ingredientLayers` is present (Sprint 3.3, composer-only), each entry is resolved via the same `resolveCupPart` and rendered after the fixed parts.
 6. `Hero` also mounts `<DevPanel />` (`engine/devpanel/`) — invisible unless both non-production and toggled with the backtick key, showing live FPS/draw-call stats. `CustomizerExperience` does not mount `DevPanel`/dev-only probes — those stay Hero-route-only.
 
 ## Responsibilities

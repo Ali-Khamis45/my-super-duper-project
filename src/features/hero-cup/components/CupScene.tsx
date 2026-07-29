@@ -21,18 +21,20 @@ import { themeToPresetMap } from "@/engine/theme/LightingThemes";
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 
 import { useMouseParallax } from "../hooks/useMouseParallax";
-import type { CupPartName, CupPartProps } from "../registry/types";
+import type { CupPartName, CupPartProps, ResolvedIngredientLayer } from "../registry/types";
 import { CupAssembly } from "./CupAssembly";
 
 interface CupSceneProps {
   /** Sprint 3.2 — see `CupAssembly`'s doc comment; threaded straight through, this component has no opinion on what the overrides mean either. */
   partOverrides?: Partial<Record<CupPartName, CupPartProps>>;
   cupScale?: number;
+  /** Sprint 3.3 — see `CupAssembly`'s doc comment; threaded straight through. */
+  ingredientLayers?: ResolvedIngredientLayer[];
   /** Only affects the `SceneCompositionRoot` record, not rendering — defaults to `"/"` (the Hero route), matching prior behavior exactly when omitted. */
   route?: string;
 }
 
-export function CupScene({ partOverrides, cupScale, route = "/" }: CupSceneProps) {
+export function CupScene({ partOverrides, cupScale, ingredientLayers, route = "/" }: CupSceneProps) {
   const theme = useActiveTheme();
   const { environment, lighting: lightingPresetName } = themeToPresetMap[theme];
   const lightingPreset = resolveLightingPreset(lightingPresetName);
@@ -101,7 +103,12 @@ export function CupScene({ partOverrides, cupScale, route = "/" }: CupSceneProps
         castShadow
         shadow-mapSize={[qualityPolicy.shadowMapSize, qualityPolicy.shadowMapSize]}
       />
-      <CupAssembly reducedMotion={reducedMotion} partOverrides={partOverrides} scale={cupScale} />
+      <CupAssembly
+        reducedMotion={reducedMotion}
+        partOverrides={partOverrides}
+        scale={cupScale}
+        ingredientLayers={ingredientLayers}
+      />
       <EffectsStack effects={sceneConfig.effects} />
       {/* Always mounted, including production — the session it protects
           most is exactly the struggling-device production session. See
