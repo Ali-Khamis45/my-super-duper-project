@@ -32,4 +32,33 @@ describe("resolveQualityPolicy", () => {
     expect(resolveQualityPolicy("medium").steamQuality).toBe("placeholder");
     expect(resolveQualityPolicy("minimal").steamQuality).toBe("placeholder");
   });
+
+  it("coffeePhysics.intensity is never 0 at any tier — 'never disable physics entirely,' scaled instead, unlike bloomEnabled's single documented exception", () => {
+    for (const tier of QUALITY_TIER_ORDER) {
+      expect(resolveQualityPolicy(tier).coffeePhysics.intensity).toBeGreaterThan(0);
+    }
+  });
+
+  it("coffeePhysics.maxActiveRipples is never 0 at any tier", () => {
+    for (const tier of QUALITY_TIER_ORDER) {
+      expect(resolveQualityPolicy(tier).coffeePhysics.maxActiveRipples).toBeGreaterThan(0);
+    }
+  });
+
+  it("coffeePhysics.intensity and maxActiveRipples are monotonically non-increasing from ultra to minimal", () => {
+    for (let i = 0; i < QUALITY_TIER_ORDER.length - 1; i++) {
+      const better = resolveQualityPolicy(QUALITY_TIER_ORDER[i]!).coffeePhysics;
+      const worse = resolveQualityPolicy(QUALITY_TIER_ORDER[i + 1]!).coffeePhysics;
+      expect(better.intensity).toBeGreaterThanOrEqual(worse.intensity);
+      expect(better.maxActiveRipples).toBeGreaterThanOrEqual(worse.maxActiveRipples);
+    }
+  });
+
+  it("secondaryMotion (foam/ice's own spring follower) is only turned off at the two lowest tiers — 'reduce secondary motion,' still present as a cheaper alias, never absent", () => {
+    expect(resolveQualityPolicy("ultra").coffeePhysics.secondaryMotion).toBe(true);
+    expect(resolveQualityPolicy("high").coffeePhysics.secondaryMotion).toBe(true);
+    expect(resolveQualityPolicy("medium").coffeePhysics.secondaryMotion).toBe(true);
+    expect(resolveQualityPolicy("low").coffeePhysics.secondaryMotion).toBe(false);
+    expect(resolveQualityPolicy("minimal").coffeePhysics.secondaryMotion).toBe(false);
+  });
 });

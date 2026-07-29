@@ -1,23 +1,31 @@
 import * as THREE from "three";
 
 import { shaderRegistry } from "../registry";
-import { applyFresnelRim } from "../surfaces/applyFresnelRim";
+import { injectFresnelRim } from "../surfaces/applyFresnelRim";
 import type { ShaderDefinition } from "../types";
+import { captureLiquidShaderRef, injectLiquidDeformation } from "./liquidDeformation";
+
+export { updateLiquidDeformationUniforms } from "./liquidDeformation";
 
 /**
- * Infrastructure-ready placeholder (docs/16_ENGINEERING_SPRINTS.md Sprint
- * 2.4) — a subtle fresnel rim on the coffee surface, proving the
- * physically-lit `onBeforeCompile` path compiles and renders correctly.
- * Explicitly NOT the final coffee liquid physics (tilt, ripples) —
- * docs/13_SHADER_ARCHITECTURE.md's Milestone 3 design — this sprint's
- * brief excludes that by name ("Do not build: Final Coffee Physics").
+ * Sprint 2.4 built the fresnel rim (proving the physically-lit
+ * `onBeforeCompile` path compiles and renders correctly). Sprint 3.4 adds
+ * the liquid deformation (tilt + ripples) docs/13_SHADER_ARCHITECTURE.md
+ * designed for this exact moment — "Coffee shader becomes the owner of
+ * liquid deformation," the brief's own words. Both live inside *one*
+ * combined `onBeforeCompile` callback (`injectFresnelRim`/
+ * `injectLiquidDeformation` are the extracted, composable halves) — a
+ * second, separate `material.onBeforeCompile = ...` assignment would
+ * silently overwrite the first rather than adding to it.
  */
 export function applyCoffeeSurface(material: THREE.Material): void {
-  applyFresnelRim(material as THREE.MeshPhysicalMaterial, {
-    color: new THREE.Color(1, 0.85, 0.6),
-    intensity: 0.04,
-    power: 3,
-  });
+  const physicallyLitMaterial = material as THREE.MeshPhysicalMaterial;
+  physicallyLitMaterial.onBeforeCompile = (shader) => {
+    injectFresnelRim(shader, { color: new THREE.Color(1, 0.85, 0.6), intensity: 0.04, power: 3 });
+    injectLiquidDeformation(shader);
+    captureLiquidShaderRef(physicallyLitMaterial, shader);
+  };
+  physicallyLitMaterial.needsUpdate = true;
 }
 
 const coffeeShaderDefinition: ShaderDefinition = {

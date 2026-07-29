@@ -34,7 +34,7 @@ Placement state (`ingredients: IngredientPlacement[]`) and the base-drink contex
 
 - **This feature owns**: the ingredient catalog, compatibility rules, presets, the placement-to-`ResolvedIngredientLayer[]` mapping, its own panel UI and screen-reader announcements.
 - **This feature borrows from `stores/customizer-store.ts`**: placement state, undo/redo, the base-drink context — not owned here, this feature only calls the store's actions.
-- **This feature borrows from `features/hero-cup/`**: `ingredient-ring`/`ingredient-sprinkles` registry entries and the material cache — this feature has zero rendering code of its own; `resolveIngredientLayers` only produces data, `hero-cup`'s registry turns it into meshes.
+- **This feature borrows from `features/hero-cup/`**: `ingredient-ring`/`ingredient-sprinkles`/`ingredient-ice` registry entries, the material cache, and (Sprint 3.4, ice only) the shared liquid-physics simulation via `physicsRef` — this feature has zero rendering or physics code of its own; `resolveIngredientLayers` only produces data (including which registry entry an ingredient's `shape` maps to), `hero-cup` turns it into meshes and, for ice, real float/drift motion.
 - **This feature borrows from `features/menu/`**: `resolveDrink`/`resolveCategory`, so the recipe summary never duplicates drink data.
 - **This feature does not own**: the 3D cup's rendering, the customizer's cosmetic swatches (color/size/sleeve/lid/logo/material), or the drop-zone DOM element itself (that's `CustomizerExperience`'s).
 

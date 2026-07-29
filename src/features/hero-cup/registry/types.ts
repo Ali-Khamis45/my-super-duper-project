@@ -1,5 +1,8 @@
 import type { ForwardRefExoticComponent, RefAttributes } from "react";
+import type { RefObject } from "react";
 import type { Group } from "three";
+
+import type { LiquidPhysicsState } from "@/engine/physics";
 
 export type CupPartName =
   | "shadow"
@@ -12,7 +15,9 @@ export type CupPartName =
   | "steam"
   /** Sprint 3.3 — rendered zero-to-many times per frame (once per active ingredient layer), not once via `CUP_PART_ORDER` like every part above. See `CupAssembly`'s `ingredientLayers` prop. */
   | "ingredient-ring"
-  | "ingredient-sprinkles";
+  | "ingredient-sprinkles"
+  /** Sprint 3.4 — same "rendered dynamically, not in CUP_PART_ORDER" category as the two above; the one ingredient with real float/drift behavior instead of a static ring. */
+  | "ingredient-ice";
 
 export type PartImplementation = "procedural" | "model";
 
@@ -37,6 +42,16 @@ export interface CupPartProps {
     clearcoat: number;
   }>;
   colorway?: CupColorway;
+  /**
+   * Sprint 3.4 — the current liquid-physics simulation state, read (never
+   * mutated) by `coffee`/`foam`/`ingredient-ice` to drive their own
+   * per-frame displacement; every other part destructures and ignores it,
+   * the same additive-field pattern `materialOverrides`/`colorway`
+   * established. `RefObject`, not a plain value — physics updates every
+   * frame and must not trigger a React re-render (see
+   * `useLiquidPhysics`'s doc comment).
+   */
+  physicsRef?: RefObject<LiquidPhysicsState>;
 }
 
 /**
@@ -56,5 +71,5 @@ export type CupPartComponent = ForwardRefExoticComponent<CupPartProps & RefAttri
  */
 export interface ResolvedIngredientLayer extends CupPartProps {
   key: string;
-  partName: Extract<CupPartName, "ingredient-ring" | "ingredient-sprinkles">;
+  partName: Extract<CupPartName, "ingredient-ring" | "ingredient-sprinkles" | "ingredient-ice">;
 }

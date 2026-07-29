@@ -56,6 +56,10 @@ export type AppEvent =
   | { name: "ingredient:removed"; ingredientId: string }
   | { name: "ingredient:updated"; ingredientId: string; quantity: number }
   | { name: "ingredient:reordered"; ingredientId: string; direction: "up" | "down" }
-  | { name: "recipe:changed"; ingredientCount: number };
+  | { name: "recipe:changed"; ingredientCount: number }
+  | { name: "physics:started" }
+  | { name: "physics:settled" }
+  | { name: "liquid:disturbed" }
+  | { name: "liquid:stabilized" };
 
 export type AppEventName = AppEvent["name"];

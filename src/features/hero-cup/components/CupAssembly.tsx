@@ -7,6 +7,7 @@ import type { Group } from "three";
 import { float } from "@/engine/motion/presets";
 
 import { useCupInteractionState } from "../hooks/useCupInteractionState";
+import { useLiquidPhysics } from "../hooks/useLiquidPhysics";
 import { CUP_PART_ORDER, resolveCupPart } from "../registry/cupPartRegistry";
 import type { CupPartName, CupPartProps, ResolvedIngredientLayer } from "../registry/types";
 
@@ -49,7 +50,11 @@ const IDLE_FLOAT_AMPLITUDE = 0.06;
  */
 export function CupAssembly({ reducedMotion, partOverrides, scale, ingredientLayers }: CupAssemblyProps) {
   const groupRef = useRef<Group>(null);
-  const { state, rotationYRef, bind } = useCupInteractionState({ disableInertia: reducedMotion });
+  const { state, rotationYRef, velocityRef, bind } = useCupInteractionState({ disableInertia: reducedMotion });
+  // Sprint 3.4 — one simulation, owned here, read by whichever parts below
+  // care (`coffee`/`foam`/`ingredient-ice`); see `useLiquidPhysics`'s doc
+  // comment on why this lives at the assembly level and not per-part.
+  const physicsRef = useLiquidPhysics({ velocityRef, interactionState: state, reducedMotion });
 
   useFrame(({ clock }, delta) => {
     const group = groupRef.current;
@@ -78,12 +83,13 @@ export function CupAssembly({ reducedMotion, partOverrides, scale, ingredientLay
             key={name}
             visible={name === "steam" ? !reducedMotion : override?.visible}
             materialOverrides={override?.materialOverrides}
+            physicsRef={physicsRef}
           />
         );
       })}
       {ingredientLayers?.map(({ key, partName, ...layerProps }) => {
         const Part = resolveCupPart(partName);
-        return <Part key={key} {...layerProps} />;
+        return <Part key={key} {...layerProps} physicsRef={physicsRef} />;
       })}
     </group>
   );

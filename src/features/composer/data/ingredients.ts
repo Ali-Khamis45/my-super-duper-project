@@ -87,7 +87,7 @@ export const INGREDIENTS: readonly Ingredient[] = [
     priceModifier: 0,
     compatibleWith: ["cold-brew"],
     color: "#dceef5",
-    shape: "ring",
+    shape: "ice",
   },
   {
     id: "milk",

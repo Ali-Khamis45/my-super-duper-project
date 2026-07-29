@@ -30,27 +30,40 @@ export interface FresnelRimOptions {
   power?: number;
 }
 
-export function applyFresnelRim(material: THREE.MeshPhysicalMaterial, options: FresnelRimOptions = {}): void {
+/**
+ * The pure shader-string-surgery step, extracted from `applyFresnelRim`
+ * below (Sprint 3.4) so a caller that needs to inject *more than one*
+ * `onBeforeCompile` modification into the same material — coffee's fresnel
+ * rim *and* its liquid-deformation vertex displacement — can compose them
+ * into one combined callback instead of the second `material.onBeforeCompile
+ * = ...` assignment silently overwriting the first (they're not additive;
+ * only the last assignment survives). `applyFresnelRim` itself is
+ * unchanged for callers (like foam, pre-Sprint-3.4) that only need this one
+ * modification.
+ */
+export function injectFresnelRim(shader: THREE.WebGLProgramParametersWithUniforms, options: FresnelRimOptions = {}): void {
   const { color = new THREE.Color(1, 1, 1), intensity = 0.06, power = 2.5 } = options;
 
-  material.onBeforeCompile = (shader) => {
-    shader.uniforms.uFresnelColor = { value: color };
-    shader.uniforms.uFresnelIntensity = { value: intensity };
-    shader.uniforms.uFresnelPower = { value: power };
+  shader.uniforms.uFresnelColor = { value: color };
+  shader.uniforms.uFresnelIntensity = { value: intensity };
+  shader.uniforms.uFresnelPower = { value: power };
 
-    shader.fragmentShader = `
+  shader.fragmentShader = `
 uniform vec3 uFresnelColor;
 uniform float uFresnelIntensity;
 uniform float uFresnelPower;
 ${shader.fragmentShader}
 `.replace(
-      "#include <opaque_fragment>",
-      `
+    "#include <opaque_fragment>",
+    `
 float rimFresnel = pow(1.0 - clamp(dot(geometryViewDir, geometryNormal), 0.0, 1.0), uFresnelPower);
 outgoingLight += uFresnelColor * rimFresnel * uFresnelIntensity;
 #include <opaque_fragment>
 `,
-    );
-  };
+  );
+}
+
+export function applyFresnelRim(material: THREE.MeshPhysicalMaterial, options: FresnelRimOptions = {}): void {
+  material.onBeforeCompile = (shader) => injectFresnelRim(shader, options);
   material.needsUpdate = true;
 }

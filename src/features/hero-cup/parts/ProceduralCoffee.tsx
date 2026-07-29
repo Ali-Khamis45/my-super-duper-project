@@ -1,9 +1,11 @@
+import { useFrame } from "@react-three/fiber";
 import { forwardRef, useMemo } from "react";
 import * as THREE from "three";
 import type { Group } from "three";
 
 import { createLiquidMaterial, getOrCreateMaterial, resolveEnvMapIntensity, SURFACE_PRESETS, updateMaterialColor, updateMaterialParams } from "@/engine/materials";
-import { applyCoffeeSurface } from "@/engine/shaders/coffee/CoffeeSurface";
+import { createLiquidPhysicsState } from "@/engine/physics";
+import { applyCoffeeSurface, updateLiquidDeformationUniforms } from "@/engine/shaders/coffee/CoffeeSurface";
 import { themeToPresetMap } from "@/engine/theme/LightingThemes";
 import { useActiveTheme } from "@/engine/theme/ThemeEngine";
 import { espressoColor } from "@/engine/theme/ColorSchemes";
@@ -13,8 +15,11 @@ import type { CupPartProps } from "../registry/types";
 
 export const COFFEE_HEIGHT = CUP_RIM_HEIGHT - 0.12;
 
+/** A part with no `physicsRef` (any consumer that existed before Sprint 3.4) still renders — just permanently at-rest displacement, matching Sprint 3.3's own "undefined props are safe no-ops" precedent. */
+const RESTING_PHYSICS_STATE = createLiquidPhysicsState();
+
 export const ProceduralCoffee = forwardRef<Group, CupPartProps>(function ProceduralCoffee(
-  { position, rotation, scale, visible, materialOverrides },
+  { position, rotation, scale, visible, materialOverrides, physicsRef },
   ref,
 ) {
   const geometry = useMemo(() => {
@@ -46,6 +51,13 @@ export const ProceduralCoffee = forwardRef<Group, CupPartProps>(function Procedu
       return mat;
     }) as THREE.MeshPhysicalMaterial;
   }, [materialOverrides, lightingPresetName]);
+
+  // This part owns *applying* physics to its own material every frame —
+  // `useLiquidPhysics` owns *computing* the values once, shared across
+  // every reader (see that hook's doc comment on "exactly one owner").
+  useFrame(() => {
+    updateLiquidDeformationUniforms(material, physicsRef?.current ?? RESTING_PHYSICS_STATE);
+  });
 
   return (
     <group ref={ref} position={position} rotation={rotation} scale={scale} visible={visible}>

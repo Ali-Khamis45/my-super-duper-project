@@ -34,8 +34,8 @@ engine/shaders/
 ├── surfaces/
 │   └── applyFresnelRim.ts   shared onBeforeCompile injection, used by coffee and foam
 ├── steam/       real, wired — replaces the Milestone 1 billboard placeholder
-├── coffee/      placeholder (fresnel rim) — full liquid physics still Milestone 3
-├── foam/        placeholder (fresnel rim) — full live-animated displacement still a later milestone
+├── coffee/      fresnel rim (Sprint 2.4) + real liquid deformation (Sprint 3.4)
+├── foam/        fresnel rim (Sprint 2.4) + real lagged-wobble deformation (Sprint 3.4)
 ├── glow/        placeholder, zero scene consumer
 ├── distortion/  placeholder, zero scene consumer
 ├── particles/   placeholder, zero scene consumer — real Milestone 5 use still pending
@@ -57,16 +57,18 @@ A `.glsl`-file-import pipeline (via a bundler loader/plugin) is the more convent
 
 **Implemented, Sprint 2.4 (placeholder)**: a fresnel-based rim brightening via `onBeforeCompile` on the existing `createFoamMaterial()` output (foam's micro-bubble structure catches light at grazing angles more than a smooth surface would — a cheap approximation, not true subsurface scattering). Shares `surfaces/applyFresnelRim.ts` with coffee.
 
-**Still target**: the live-animated noise displacement on the foam disc's outer edge (replacing the current one-time-computed irregular edge in `createFoamGeometry` with a continuously-animated one) — this sprint's brief explicitly excluded it ("Do not build: Final Steam Simulation... Ingredient Physics" and "intentionally simple" placeholders only).
+**Implemented, Sprint 3.4**: `engine/shaders/foam/foamLagDeformation.ts`'s `injectFoamLagDeformation` — a single `uFoamLag` uniform (no ripple array; the brief is explicit that foam should be "slight lag... subtle wobble... never noisy," so it deliberately doesn't get its own full ripple system) driving the same local-Z-as-height displacement technique as coffee, at a reduced relative amplitude. `uFoamLag` is itself a lower-amplitude, lower-stiffness spring follower of the liquid's `tiltAngle` (`engine/physics/liquidPhysics.ts`) — foam visibly lags behind the liquid because it's computed *from* the liquid's value with its own slower spring, not a copy of the same signal. This is a **live-animated** displacement, distinct from `createFoamGeometry`'s separate, still-static irregular-edge perturbation (computed once at geometry creation, unrelated to this per-frame vertex-shader displacement) — the two aren't in tension, they're different techniques for different things (a fixed irregular silhouette vs. a moving surface response).
 
 ## Coffee
 
 **Implemented, Sprint 2.4 (placeholder)**: the same shared fresnel rim as foam, tuned separately (warmer tint, lower intensity). Applied via the Material Manager's cache factory function, not on every retrieval — see [03_3D_ENGINE.md](03_3D_ENGINE.md).
 
-**Still target — Milestone 3's liquid physics**, and the one with real interaction-driven behavior, not just ambient motion — explicitly excluded from this sprint ("Do not build: Final Coffee Physics"):
+**Implemented, Sprint 3.4 — liquid physics, built exactly as designed here two sprints ago**: `engine/shaders/coffee/liquidDeformation.ts`'s `injectLiquidDeformation`, composed into the same `onBeforeCompile` callback as the fresnel rim (`CoffeeSurface.ts`'s `applyCoffeeSurface`, via the newly-extracted `injectFresnelRim`/`injectLiquidDeformation` pair — a single combined callback, since a second `material.onBeforeCompile = ...` assignment would silently overwrite the first rather than compose with it):
 
-- **Tilt**: a `uTiltAngle` uniform (a spring-damper value computed in JS from the cup's rotation velocity — see [04_MOTION_ENGINE.md](04_MOTION_ENGINE.md)'s "not a physics engine" note and the `velocityRef` extension it names) rotates the liquid surface's displacement around its center in the vertex shader, reading the same rotation state `useCupInteractionState` already tracks.
-- **Ripples**: a small fixed-size array of `{ origin: vec2, startTime: float }` uniforms, each producing a decaying sine wave from its origin; a new ripple is triggered by the same drag/release interaction events the Interaction Manager (see [12_INTERACTION_SYSTEM.md](12_INTERACTION_SYSTEM.md)) already recognizes, not a new input mechanism.
+- **Tilt**: a `uTiltAngle` uniform — exactly the spring-damper value computed in JS from the cup's rotation velocity this doc predicted, via `engine/physics/liquidPhysics.ts`'s `stepLiquidPhysics` and the `velocityRef` extension [04_MOTION_ENGINE.md](04_MOTION_ENGINE.md) named — displaces the liquid surface's local Z (world "height," after `ProceduralCoffee`'s mesh rotation) proportional to local X, in the vertex shader.
+- **Ripples**: a `vec4`-packed fixed-size (4-slot) array of amplitude/elapsed-time pairs, each producing a decaying sine wave from a deterministic (golden-angle-stepped, not `Math.random()`) origin; triggered by the same `useCupInteractionState` drag-start/release transitions this doc predicted, read via `useLiquidPhysics` — not a new input mechanism.
+- **Adaptive quality**: `engine/performance/qualityPolicy.ts`'s `coffeePhysics` (`intensity`/`maxActiveRipples`/`secondaryMotion`) scales amplitude, ripple-slot cap, and whether foam/ice run their own spring follower — never fully disabled at any tier, per this sprint's explicit "never disable physics entirely" requirement.
+- **A real, accepted simplification**: vertex normals are not recomputed after displacement — the amplitude is small enough that the lighting error is not visually significant, and a correct recompute would meaningfully raise the shader's cost for an effect nobody would notice is slightly mis-lit. See [reviews/sprint-3.4-review.md](reviews/sprint-3.4-review.md).
 
 ## Particles
 

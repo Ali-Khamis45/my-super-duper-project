@@ -21,8 +21,14 @@ export type IngredientCategoryId =
   | "milk"
   | "syrup";
 
-/** Which registered hero-cup part renders this ingredient. Sprinkles is the one ingredient this sprint gives a genuinely distinct shape — see `ProceduralIngredientSprinkles.tsx`'s doc comment. */
-export type IngredientShape = "ring" | "sprinkles";
+/**
+ * Which registered hero-cup part renders this ingredient. Sprinkles (Sprint
+ * 3.3) is the one ingredient given a genuinely distinct *shape*; ice
+ * (Sprint 3.4) keeps the shared ring shape but gets genuinely distinct
+ * *behavior* (float/drift, see `ProceduralIngredientIce.tsx`) — two
+ * different reasons an ingredient can need its own registry entry.
+ */
+export type IngredientShape = "ring" | "sprinkles" | "ice";
 
 export interface Ingredient {
   id: IngredientCategoryId;

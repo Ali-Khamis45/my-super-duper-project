@@ -4,6 +4,7 @@ import { ProceduralContactShadow } from "../parts/ProceduralContactShadow";
 import { ProceduralCoffee } from "../parts/ProceduralCoffee";
 import { ProceduralCup } from "../parts/ProceduralCup";
 import { ProceduralFoam } from "../parts/ProceduralFoam";
+import { ProceduralIngredientIce } from "../parts/ProceduralIngredientIce";
 import { ProceduralIngredientRing } from "../parts/ProceduralIngredientRing";
 import { ProceduralIngredientSprinkles } from "../parts/ProceduralIngredientSprinkles";
 import { ProceduralLid } from "../parts/ProceduralLid";
@@ -34,6 +35,7 @@ cupPartRegistry.register("steam", "procedural", ProceduralSteam);
 // via its `ingredientLayers` prop, not once per fixed slot.
 cupPartRegistry.register("ingredient-ring", "procedural", ProceduralIngredientRing);
 cupPartRegistry.register("ingredient-sprinkles", "procedural", ProceduralIngredientSprinkles);
+cupPartRegistry.register("ingredient-ice", "procedural", ProceduralIngredientIce);
 
 export const resolveCupPart = cupPartRegistry.resolve;
 

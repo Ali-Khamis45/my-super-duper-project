@@ -136,22 +136,55 @@ export function useCupInteractionState({ disableInertia = false }: UseCupInterac
     const keyboardDelta = drainKeyboardRotation();
     if (keyboardDelta !== 0) {
       rotationYRef.current += keyboardDelta;
+      // Sprint 3.4: a keyboard step is a real, discrete rotation impulse —
+      // `velocityRef` (now exposed below for `useLiquidPhysics`) should
+      // reflect it exactly the way a drag's pointermove already does, so
+      // keyboard users get the identical liquid-tilt/ripple response
+      // ("Keyboard users must experience the same visual state
+      // transitions" — the brief's own accessibility requirement), not a
+      // silently-inert velocity signal.
+      velocityRef.current += keyboardDelta;
       appEvents.emit({ name: "cup:rotated", degrees: keyboardDelta * RADIANS_TO_DEGREES, method: "keyboard" });
       invalidate();
     }
 
-    if (state !== "rotate") return;
-    rotationYRef.current += velocityRef.current;
-    velocityRef.current *= INERTIA_DAMPING;
-    if (Math.abs(velocityRef.current) < INERTIA_STOP_THRESHOLD) {
-      velocityRef.current = 0;
-      setState("idle");
+    if (state === "rotate") {
+      rotationYRef.current += velocityRef.current;
+      velocityRef.current *= INERTIA_DAMPING;
+      if (Math.abs(velocityRef.current) < INERTIA_STOP_THRESHOLD) {
+        velocityRef.current = 0;
+        setState("idle");
+      }
+    } else if (state !== "drag" && velocityRef.current !== 0) {
+      // Sprint 3.4: a keyboard impulse (above) needs to decay back to 0 on
+      // its own, since keyboard rotation never transitions through
+      // `"rotate"` (the drag-release inertia-coast state) — without this,
+      // `velocityRef` would stay pinned at its last keyboard-impulse value
+      // forever. Explicitly excludes `"drag"`: during an active drag,
+      // `velocityRef` is being freshly set every `pointermove` in the
+      // effect below, and damping it here too, between moves, would
+      // corrupt the release-velocity reading `RELEASE_VELOCITY_THRESHOLD`
+      // depends on.
+      velocityRef.current *= INERTIA_DAMPING;
+      if (Math.abs(velocityRef.current) < INERTIA_STOP_THRESHOLD) velocityRef.current = 0;
     }
   });
 
   return {
     state,
     rotationYRef,
+    /**
+     * Sprint 3.4 — the angular-velocity signal `useLiquidPhysics` drives
+     * coffee tilt from, per docs/15_ARCHITECTURE_FREEZE.md's "Coffee Liquid
+     * Physics" scenario ("requires `useCupInteractionState` to expose
+     * angular velocity... additive extension, not a rewrite"). Always
+     * populated (drag, touch-drag, inertia-coast, and now keyboard) —
+     * computed internally since Milestone 1, only newly exposed here.
+     * Every pre-Sprint-3.4 consumer (`CupAssembly`) destructures `state`/
+     * `rotationYRef`/`bind` and ignores this new field — zero behavior
+     * change for them.
+     */
+    velocityRef,
     bind: {
       onPointerEnter: handlePointerEnter,
       onPointerLeave: handlePointerLeave,

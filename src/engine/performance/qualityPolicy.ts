@@ -26,7 +26,30 @@ export interface QualityPolicy {
   maxParticleCount: number;
   /** Milestone 2+/3 — typed placeholders for effects that are still placeholder-grade (Sprint 2.4) or unbuilt. */
   steamQuality: "placeholder" | "full";
-  coffeePhysicsQuality: "off" | "full";
+  /**
+   * Sprint 3.4's first real consumer — reshaped from the original
+   * `coffeePhysicsQuality: "off" | "full"` placeholder (zero real callers,
+   * confirmed before changing it — same "shape it correctly at its first
+   * real consumer" precedent as `materialOverrides`/`colorway` in earlier
+   * sprints). A plain `"off" | "full"` boolean-in-disguise would have
+   * repeated the one exception this table's own doc comment already calls
+   * out (`bloomEnabled`) — this sprint's explicit brief is "Never disable
+   * physics entirely. Scale quality gracefully," so every tier below keeps
+   * `intensity` nonzero. Deliberately a plain inline shape, not an import
+   * from `engine/physics` — same reasoning as `steamQuality` above not
+   * importing from `engine/shaders`: this table only ever describes *how
+   * much*, structurally compatible with whatever shape the real consumer
+   * needs, without this performance-tier module reaching into a specific
+   * feature's types (the one-directionality rule).
+   */
+  coffeePhysics: {
+    /** 0-1, multiplies tilt/ripple/foam-lag/ice-lag displacement amplitude — never 0. */
+    intensity: number;
+    /** How many concurrent ripple waves a tier allows (of a fixed 4-slot pool) — never 0. */
+    maxActiveRipples: number;
+    /** Whether foam/ice run their own independent spring follower, or cheaply alias a scaled copy of the primary tilt signal. */
+    secondaryMotion: boolean;
+  };
 }
 
 const QUALITY_POLICY: Record<QualityTier, QualityPolicy> = {
@@ -38,7 +61,7 @@ const QUALITY_POLICY: Record<QualityTier, QualityPolicy> = {
     environmentResolutionScale: 1,
     maxParticleCount: 512,
     steamQuality: "full",
-    coffeePhysicsQuality: "full",
+    coffeePhysics: { intensity: 1, maxActiveRipples: 4, secondaryMotion: true },
   },
   high: {
     dprRange: [1, 2],
@@ -48,7 +71,7 @@ const QUALITY_POLICY: Record<QualityTier, QualityPolicy> = {
     environmentResolutionScale: 1,
     maxParticleCount: 256,
     steamQuality: "full",
-    coffeePhysicsQuality: "full",
+    coffeePhysics: { intensity: 1, maxActiveRipples: 4, secondaryMotion: true },
   },
   medium: {
     dprRange: [1, 1.5],
@@ -58,7 +81,7 @@ const QUALITY_POLICY: Record<QualityTier, QualityPolicy> = {
     environmentResolutionScale: 0.75,
     maxParticleCount: 128,
     steamQuality: "placeholder",
-    coffeePhysicsQuality: "off",
+    coffeePhysics: { intensity: 0.7, maxActiveRipples: 3, secondaryMotion: true },
   },
   low: {
     dprRange: [1, 1],
@@ -68,7 +91,7 @@ const QUALITY_POLICY: Record<QualityTier, QualityPolicy> = {
     environmentResolutionScale: 0.5,
     maxParticleCount: 48,
     steamQuality: "placeholder",
-    coffeePhysicsQuality: "off",
+    coffeePhysics: { intensity: 0.45, maxActiveRipples: 2, secondaryMotion: false },
   },
   minimal: {
     dprRange: [1, 1],
@@ -78,7 +101,7 @@ const QUALITY_POLICY: Record<QualityTier, QualityPolicy> = {
     environmentResolutionScale: 0.5,
     maxParticleCount: 0,
     steamQuality: "placeholder",
-    coffeePhysicsQuality: "off",
+    coffeePhysics: { intensity: 0.25, maxActiveRipples: 1, secondaryMotion: false },
   },
 };
 

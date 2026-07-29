@@ -29,6 +29,12 @@ describe("resolveIngredientLayers", () => {
     expect(layer?.materialOverrides).toBeUndefined();
   });
 
+  it("resolves ice to an 'ingredient-ice' layer with its color (Sprint 3.4 — same ring shape as other ingredients, distinct float behavior)", () => {
+    const [layer] = resolveIngredientLayers([placement("ice")]);
+    expect(layer?.partName).toBe("ingredient-ice");
+    expect(layer?.materialOverrides?.color).toBeDefined();
+  });
+
   it("stacks layers by array order, each one higher than the last", () => {
     const layers = resolveIngredientLayers([placement("chocolate"), placement("cream"), placement("caramel")]);
     const heights = layers.map((layer) => layer.position![1]!);

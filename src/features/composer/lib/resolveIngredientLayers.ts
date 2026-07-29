@@ -38,6 +38,18 @@ export function resolveIngredientLayers(placements: IngredientPlacement[]): Reso
       return;
     }
 
+    if (ingredient.shape === "ice") {
+      layers.push({
+        key: placement.ingredientId,
+        partName: "ingredient-ice",
+        position: [0, height, 0],
+        scale: quantityScale,
+        materialOverrides: { color: ingredient.color },
+        visible: true,
+      });
+      return;
+    }
+
     layers.push({
       key: placement.ingredientId,
       partName: "ingredient-ring",

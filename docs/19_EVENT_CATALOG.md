@@ -55,7 +55,11 @@ type AppEvent =
   | { name: "ingredient:removed"; ingredientId: string }
   | { name: "ingredient:updated"; ingredientId: string; quantity: number }
   | { name: "ingredient:reordered"; ingredientId: string; direction: "up" | "down" }
-  | { name: "recipe:changed"; ingredientCount: number };
+  | { name: "recipe:changed"; ingredientCount: number }
+  | { name: "physics:started" }
+  | { name: "physics:settled" }
+  | { name: "liquid:disturbed" }
+  | { name: "liquid:stabilized" };
 ```
 
 ## Catalog
@@ -106,6 +110,10 @@ type AppEvent =
 | `ingredient:updated` | `{ ingredientId, quantity }` | **Implemented, Sprint 3.3** — same store's `updateIngredientQuantity()`, on a real (clamped) quantity change only | `IngredientAnnouncer`, Analytics (future) | Always immediately followed by `recipe:changed` | N/A | `quantity` is always the post-clamp value (`MIN_INGREDIENT_QUANTITY`–`MAX_INGREDIENT_QUANTITY`), never the raw requested one |
 | `ingredient:reordered` | `{ ingredientId, direction }` | **Implemented, Sprint 3.3** — same store's `reorderIngredient()`, on a real swap only (a no-op at either end of the stack never fires it) | `IngredientAnnouncer`, Analytics (future) | Always immediately followed by `recipe:changed` | N/A | — |
 | `recipe:changed` | `{ ingredientCount }` | **Implemented, Sprint 3.3** — same store, co-emitted at the end of every ingredient mutation (`addIngredient`/`removeIngredient`/`updateIngredientQuantity`/`reorderIngredient`/`applyIngredientPreset`) | Analytics (future) — a single coarse "the recipe changed somehow" signal so a consumer that only cares about *whether* the drink changed, not *how*, doesn't need to subscribe to all four specific events | Fires once per ingredient-affecting store action, after the more specific event (if any) for that action | N/A | Deliberately coarse, matching `quality:auto-changed`'s co-emission pattern above — a summary signal alongside specific ones, not a replacement for them |
+| `liquid:disturbed` | `{}` | **Implemented, Sprint 3.4** — `features/hero-cup/hooks/useLiquidPhysics.ts`, on the frame the liquid surface's own tilt+ripple subsystem (not foam/ice) transitions from settled to unsettled | Analytics (future) | Fires once per disturbance, not continuously while still moving — mirrors `performance:degraded`'s "first sample of a streak" shape above | N/A | Settles *before* `physics:settled` below, since foam/ice are deliberately slower followers of the same tilt signal |
+| `liquid:stabilized` | `{}` | **Implemented, Sprint 3.4** — same hook, on the transition back to settled | Analytics (future) | Always follows a `liquid:disturbed` for the same disturbance, never fires on its own | N/A | — |
+| `physics:started` | `{}` | **Implemented, Sprint 3.4** — same hook, on the whole simulation (tilt + ripples + foam lag + ice lag — not ice's permanent idle drift, which never settles by design) transitioning from settled to unsettled | Analytics (future) | The coarse, whole-system counterpart to `liquid:disturbed` — same co-emission-pattern reasoning as `recipe:changed` above | N/A | Fires slightly after (or with) `liquid:disturbed`, never before it |
+| `physics:settled` | `{}` | **Implemented, Sprint 3.4** — same hook, on the transition back to fully settled | Analytics (future) | Always follows a `physics:started`; fires at or after the matching `liquid:stabilized`, never before | N/A | — |
 
 ## What deliberately has no event
 
