@@ -10,4 +10,7 @@ export type AnalyticsEvent =
   | { name: "webgl_unavailable"; payload: Record<string, never> }
   | { name: "quality_tier_auto_changed"; payload: { tier: string; previous: string } }
   | { name: "performance_degraded"; payload: { fps: number } }
-  | { name: "memory_pressure_detected"; payload: { reason: string } };
+  | { name: "memory_pressure_detected"; payload: { reason: string } }
+  | { name: "menu_searched"; payload: { query: string; resultCount: number } }
+  | { name: "menu_category_filtered"; payload: { category: string } }
+  | { name: "menu_drink_viewed"; payload: { drinkId: string } };
