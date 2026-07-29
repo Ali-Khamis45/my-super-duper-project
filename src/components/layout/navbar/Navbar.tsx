@@ -9,6 +9,8 @@ import { ThemeToggle } from "@/design-system/theme/ThemeToggle";
 import { durations } from "@/engine/motion/durations";
 import { easings } from "@/engine/motion/easings";
 import { fadeIn } from "@/engine/motion/presets";
+import { CartAnnouncer } from "@/features/cart/components/CartAnnouncer";
+import { CartIcon } from "@/features/cart/components/CartIcon";
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 
 import { MobileMenu } from "./MobileMenu";
@@ -39,6 +41,8 @@ export function Navbar() {
               </Link>
               <NavLinks className="hidden sm:flex" />
               <div className="flex shrink-0 items-center gap-1">
+                <CartAnnouncer />
+                <CartIcon />
                 <ThemeToggle />
                 <MobileMenu />
               </div>

@@ -13,6 +13,11 @@ import { useConciergeStore } from "@/stores/concierge-store";
  * region only needs its text content to change for a screen reader to
  * announce it, which a derived value updates exactly the same way a
  * `setState` call would, without the extra render-then-effect round trip.
+ *
+ * `aria-label` added in Sprint 3.6: `CartAnnouncer` now lives in the
+ * (global, every-route) navbar, so more than one `role="status"` region
+ * can legitimately coexist on `/concierge` at once — a real, correct
+ * accessibility improvement, not just a test-targeting convenience.
  */
 export function RecommendationAnnouncer() {
   const lastRecommendation = useConciergeStore((state) => state.lastRecommendation);
@@ -20,7 +25,7 @@ export function RecommendationAnnouncer() {
   const message = drink && lastRecommendation ? `Recommendation ready: ${drink.name}, ${Math.round(lastRecommendation.top.confidence * 100)}% confidence` : "";
 
   return (
-    <div role="status" aria-live="polite" className="sr-only">
+    <div role="status" aria-live="polite" aria-label="Recommendation announcements" className="sr-only">
       {message}
     </div>
   );

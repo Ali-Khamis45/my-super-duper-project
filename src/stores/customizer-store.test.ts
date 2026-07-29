@@ -11,6 +11,9 @@ function resetStore() {
     history: [DEFAULT_SELECTION],
     historyIndex: 0,
     savedPresets: [],
+    baseDrinkId: "classic-espresso",
+    baseDrinkCategory: "espresso",
+    appliedRecommendationId: null,
   });
 }
 
@@ -298,6 +301,30 @@ describe("useCustomizerStore", () => {
       useCustomizerStore.getState().undo();
       expect(useCustomizerStore.getState().baseDrinkId).toBe("mocha");
       expect(useCustomizerStore.getState().baseDrinkCategory).toBe("espresso");
+    });
+  });
+
+  describe("appliedRecommendationId (Sprint 3.6)", () => {
+    it("starts null", () => {
+      expect(useCustomizerStore.getState().appliedRecommendationId).toBeNull();
+    });
+
+    it("markRecommendationApplied() sets it", () => {
+      useCustomizerStore.getState().markRecommendationApplied("rec-1");
+      expect(useCustomizerStore.getState().appliedRecommendationId).toBe("rec-1");
+    });
+
+    it("setBaseDrink() to a genuinely different drink clears it", () => {
+      useCustomizerStore.getState().markRecommendationApplied("rec-1");
+      useCustomizerStore.getState().setBaseDrink("mocha", "espresso");
+      expect(useCustomizerStore.getState().appliedRecommendationId).toBeNull();
+    });
+
+    it("setBaseDrink() to the same drink id leaves it untouched", () => {
+      useCustomizerStore.getState().setBaseDrink("mocha", "espresso");
+      useCustomizerStore.getState().markRecommendationApplied("rec-1");
+      useCustomizerStore.getState().setBaseDrink("mocha", "espresso");
+      expect(useCustomizerStore.getState().appliedRecommendationId).toBe("rec-1");
     });
   });
 });

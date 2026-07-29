@@ -34,6 +34,7 @@ ADR-0005 reserves TanStack Query for "a real endpoint — no placeholder queries
 3. The result commits via `concierge-store`'s `setRecommendation`, which emits `ai:recommendation-ready` (an event typed since Sprint 0, its first real publisher).
 4. `ConciergeCanvas` reads `lastRecommendation` and switches `CupCanvasLoader`'s `cameraPreset` from `"hero"` to `"ai"` — `CameraRig`'s smooth preset-to-preset interpolation (built Sprint 2.1, never exercised live until now) — and resolves `suggestedCustomizations` into real 3D `ingredientLayers` via `features/composer/`'s own `resolveIngredientLayers`, so the suggested drink visibly appears on the cup, not just in text.
 5. `RecommendationPanel`/`DrinkComparison` render the explanation, confidence, suggestions, and alternatives. "Apply to Customizer" calls `concierge-store`'s `applyRecommendationToCustomizer` (which calls `customizer-store`'s own `setBaseDrink`/`addIngredient` directly — no duplicated model of what a drink+ingredient selection means) and navigates to `/customize?drink=<id>`, the same real routing Sprint 3.3 built for the menu's own CTA.
+6. **Sprint 3.6**: `applyRecommendationToCustomizer` also calls `customizer-store`'s `markRecommendationApplied(recommendation.id)`, after the `setBaseDrink`/`addIngredient` calls (ordering matters — `setBaseDrink` clears the field on an actual drink change). This is how `features/cart/`'s `RecipeSnapshot.appliedRecommendationId` — "Applied AI recommendations," the brief's own words for what a cart line must preserve — traces back to a real recommendation without concierge/cart ever sharing a model: the customizer store is the one place both features read/write it.
 
 ## Responsibilities
 
@@ -52,5 +53,4 @@ ADR-0005 reserves TanStack Query for "a real endpoint — no placeholder queries
 
 ## Future extension
 
-- **Sprint 3.6 (Commerce)**: "Apply to Customizer" is the natural handoff point to a future "Add to cart" — not stubbed ahead of it.
 - **A real backend**: if this project ever gains a real recommendation endpoint, `lib/recommendationEngine.ts`'s pure `(profile, drinks, options) -> Recommendation` signature is the contract a real API would need to satisfy — `useRecommendation.ts` would be the one place to swap the local call for a real TanStack Query mutation, matching the Architecture Freeze's original anticipation, once ADR-0005's "real endpoint" condition is actually met.

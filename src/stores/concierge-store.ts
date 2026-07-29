@@ -75,6 +75,11 @@ export const useConciergeStore = create<ConciergeStoreState>()(
         for (const customization of recommendation.suggestedCustomizations) {
           customizer.addIngredient(customization.ingredientId);
         }
+        // Sprint 3.6 — after `setBaseDrink`, never before: a genuinely
+        // different drink clears any previously-applied recommendation
+        // (see that action's own doc comment), so marking this one applied
+        // has to happen second or it would be immediately wiped.
+        customizer.markRecommendationApplied(recommendation.id);
         appEvents.emit({ name: "ai:recommendation-applied", recommendationId: recommendation.id });
       },
 

@@ -112,7 +112,9 @@ test("screen-reader live region announces the recommendation", async ({ page }) 
   await page.waitForSelector('[role="application"] canvas');
   await submitAndWaitForRecommendation(page);
 
-  await expect(page.locator('[role="status"]')).toContainText("Recommendation ready:");
+  // Scoped by name — Sprint 3.6 added a second, global `role="status"`
+  // region (the navbar's cart announcer) that now coexists on this route.
+  await expect(page.getByRole("status", { name: "Recommendation announcements" })).toContainText("Recommendation ready:");
 });
 
 test("keyboard: tabbing to a preference option and pressing Enter selects it, then submitting works", async ({ page }) => {

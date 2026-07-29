@@ -154,7 +154,9 @@ test("undo/redo integration: adding an ingredient is undoable through the same U
 
 test("screen-reader live region announces ingredient add/remove", async ({ page }) => {
   await page.goto("/customize");
-  const status = page.locator('[role="status"]');
+  // Scoped by name — Sprint 3.6 added a second, global `role="status"`
+  // region (the navbar's cart announcer) that now coexists on this route.
+  const status = page.getByRole("status", { name: "Ingredient announcements" });
   await page.getByRole("button", { name: /Add Chocolate Drizzle/ }).click();
   await expect(status).toHaveText("Chocolate Drizzle added");
 

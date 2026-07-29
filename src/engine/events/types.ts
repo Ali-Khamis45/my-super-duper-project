@@ -62,6 +62,9 @@ export type AppEvent =
   | { name: "liquid:disturbed" }
   | { name: "liquid:stabilized" }
   | { name: "ai:recommendation-applied"; recommendationId: string }
-  | { name: "taste-profile:updated"; field: string };
+  | { name: "taste-profile:updated"; field: string }
+  | { name: "cart:item-added"; recipeId: string }
+  | { name: "cart:item-removed"; recipeId: string }
+  | { name: "cart:updated"; itemCount: number; total: number };
 
 export type AppEventName = AppEvent["name"];

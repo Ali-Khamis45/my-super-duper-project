@@ -1,6 +1,7 @@
 "use client";
 
 import { Separator } from "@/components/ui/separator";
+import { AddToCartButton } from "@/features/cart/components/AddToCartButton";
 import { ComposerSection } from "@/features/composer/components/ComposerSection";
 import { useCustomizerStore } from "@/stores/customizer-store";
 import type { CustomizerCategory, CustomizerSelection } from "@/stores/customizer-store";
@@ -71,6 +72,9 @@ export function CustomizerPanel() {
 
       <Separator />
       <PresetSaveControls />
+
+      <Separator />
+      <AddToCartButton />
     </div>
   );
 }

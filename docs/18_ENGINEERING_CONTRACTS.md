@@ -56,15 +56,15 @@ Every Zustand store, current and planned, frozen the same way managers are. Two 
 | Persistence | Session-only at first (no cross-visit cart persistence needed until Milestone 8 makes it a cart item) |
 | Future extensions | `resetToProduct` is the seam Milestone 8's cart adds onto — never a reason to touch the selectors above |
 
-### Cart store (future, Milestone 8 — designed now, not built)
+### Cart store (Implemented, Sprint 3.6 — built to this exact pre-designed shape, extended for the sprint's much richer brief)
 
 | | |
 |---|---|
-| Responsibilities | Items added from the customizer, quantities, running total |
-| Selectors | `useCartItems()`, `useCartTotal()` |
-| Actions | `addItem(customizerSnapshot)`, `removeItem(id)`, `clear()` |
-| Persistence | `localStorage`-backed (a cart surviving a reload is expected UX; deferred until this milestone since guessing the persistence shape now would be exactly the speculative work [17_ZERO_REWRITE_POLICY.md](17_ZERO_REWRITE_POLICY.md) warns against) |
-| Future extensions | None anticipated beyond Milestone 8's own scope |
+| Responsibilities | Items added from the customizer (as full `RecipeSnapshot`s, not a reference back to live state — see `features/cart/types.ts`), quantities, running total, session favorites, the last completed order |
+| Selectors | `selectCartItemCount(items)`, `selectCartTotal(items)` (plain functions over `items`, not store-bound hooks — `useCartStore((s) => s.items)` plus these keeps `PriceBreakdown`'s totals `useMemo`-able per the brief's own "memoize derived totals" requirement, rather than baking memoization into the store itself) |
+| Actions | `addItem(snapshot, quantity?)` (merges into an existing identical recipe rather than duplicating — see `stores/cart-store.ts`'s `isSameRecipe`), `removeItem(id)`, `updateQuantity(id, quantity)`, `reorderItem(id, direction)`, `clear()`, `toggleFavorite(snapshot)`, `addFavoriteToCart(id)`, `placeOrder()` — a real, larger action set than this table's original 3-action sketch, additive for this sprint's real "Quantity Editing"/"Favorites"/"Checkout Flow" requirements, not a rewrite of the sketch's intent |
+| Persistence | `localStorage`-backed, exactly as designed here at the Architecture Freeze — the one deliberate difference from every other feature store in this project (`customizer-store`/`concierge-store` are both `sessionStorage`) |
+| Future extensions | `RecipeSnapshot`'s own doc comment names "linking orders to the account for future use" as a real, enabled-but-not-built capability — the model is durable and self-contained enough for a future auth/order-history feature to consume directly, no reshaping needed |
 
 ## Graphics contracts
 

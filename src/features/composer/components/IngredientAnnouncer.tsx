@@ -16,6 +16,13 @@ import { resolveIngredient } from "../data/ingredients";
  * cosmetic swatch presets too (same event, two callers) — only announce it
  * here when the id resolves to a *composer* preset, so loading a saved cup
  * look doesn't produce a confusing "ingredient preset" announcement.
+ *
+ * `aria-label` added in Sprint 3.6: `CartAnnouncer` now lives in the
+ * (global, every-route) navbar, so more than one `role="status"` region
+ * can legitimately coexist on `/customize` at once — a real, correct
+ * accessibility improvement (distinct live regions, not an ambiguous
+ * unlabeled pair) as well as what let `e2e/composer.spec.ts` keep
+ * targeting this one specifically.
  */
 export function IngredientAnnouncer() {
   const [message, setMessage] = useState("");
@@ -48,7 +55,7 @@ export function IngredientAnnouncer() {
   }, []);
 
   return (
-    <div role="status" aria-live="polite" className="sr-only">
+    <div role="status" aria-live="polite" aria-label="Ingredient announcements" className="sr-only">
       {message}
     </div>
   );

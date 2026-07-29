@@ -21,6 +21,8 @@ Selection state lives in `stores/customizer-store.ts` (project-root `stores/`, n
 
 **Sprint 3.3**: `CustomizerPanel` also renders `features/composer/`'s `ComposerSection` — the Drink Composer (ingredient library, layer stack, recipe summary) lives in its own feature folder, not inside `customizer/`, but shares this same store (`ingredients`/`baseDrinkId`/`baseDrinkCategory` fields, added to `CustomizerSelection`/`CustomizerStoreState` this sprint) and the same undo/redo history. `CustomizerExperience` also gained a `drinkId?: string` prop (from `/customize?drink=<id>`, resolved via `features/menu/data/drinks.ts`'s `resolveDrink`) and a drag-and-drop zone on the canvas wrapper for the composer's drag-to-add path.
 
+**Sprint 3.6**: `CustomizerPanel` renders `features/cart/`'s `AddToCartButton` at the very end of the panel, after a `Separator` — the cart feature owns the button, this feature only hosts it, the same "own vs. host" split as `ComposerSection`. `stores/customizer-store.ts` gained `appliedRecommendationId: string | null` (cleared only when `setBaseDrink` actually changes drinks, so ingredient/cosmetic edits after applying a recommendation don't lose the link) plus two actions this feature and `features/cart/` both call: `markRecommendationApplied(recommendationId)` (called by `concierge-store` right after it applies a recommendation) and `loadRecipeSnapshot(baseDrinkId, baseDrinkCategory, selection, appliedRecommendationId)` (called by `features/cart/`'s "Edit" action to push a cart item's full recipe back into live selection state in one step, no field-by-field reconstruction).
+
 ## Flow
 
 1. `app/customize/page.tsx` renders `CustomizerExperience` (client — needs the Zustand store from first render).
@@ -45,6 +47,5 @@ Selection state lives in `stores/customizer-store.ts` (project-root `stores/`, n
 
 ## Future extension
 
-- **Sprint 3.6 (Commerce)**: an "Add to cart" action naturally belongs here once a cart concept exists — not stubbed ahead of it.
 - **A real backend**: `data/*.ts`'s shapes are the contract a future catalog/pricing API would need to satisfy, the same migration point `features/menu/README.md` names for its own data.
 - **Per-part material finish**: if user feedback wants it, `resolvePartOverrides` is the one place that change would need to happen — the panel/store shapes would need a finish-per-category field instead of one global `material` selection.

@@ -77,9 +77,30 @@ interface CustomizerStoreState {
    */
   baseDrinkId: string;
   baseDrinkCategory: DrinkCategoryId;
+  /**
+   * Sprint 3.6 — set when `features/concierge/`'s `applyRecommendationToCustomizer`
+   * applies a recommendation, so a later "Add to Cart" can snapshot which
+   * (if any) AI recommendation this recipe traces back to — the brief's own
+   * "Applied AI recommendations (if applicable)." Deliberately not cleared
+   * on every subsequent manual tweak (a lightly-adjusted AI suggestion is
+   * still meaningfully "AI-recommended"); only `setBaseDrink` from a
+   * *different* drink or a full `reset()` clears it, since either means
+   * the recommendation no longer describes what's being composed.
+   */
+  appliedRecommendationId: string | null;
   setPreview: (partial: Partial<CustomizerSelection> | null) => void;
   select: (category: CustomizerCategory, value: CustomizerSelection[CustomizerCategory], via: "click" | "keyboard") => void;
   setBaseDrink: (drinkId: string, category: DrinkCategoryId) => void;
+  markRecommendationApplied: (recommendationId: string) => void;
+  /**
+   * Sprint 3.6 — "Editing items in the cart" rehydrates the customizer
+   * from a `RecipeSnapshot` in one commit: `selection` (color/size/
+   * ingredients/etc.), `baseDrinkId`/`baseDrinkCategory`, and the
+   * recommendation link, all at once — the exact reverse of how
+   * `features/cart/lib/buildRecipeSnapshot.ts` builds one, "no data
+   * transformations or state reconstruction" in either direction.
+   */
+  loadRecipeSnapshot: (baseDrinkId: string, baseDrinkCategory: DrinkCategoryId, selection: CustomizerSelection, appliedRecommendationId: string | null) => void;
   addIngredient: (ingredientId: string) => void;
   removeIngredient: (ingredientId: string) => void;
   updateIngredientQuantity: (ingredientId: string, quantity: number) => void;
@@ -110,6 +131,7 @@ export const useCustomizerStore = create<CustomizerStoreState>()(
       savedPresets: [],
       baseDrinkId: "classic-espresso",
       baseDrinkCategory: "espresso",
+      appliedRecommendationId: null,
 
       setPreview: (partial) => set({ preview: partial }),
 
@@ -122,7 +144,26 @@ export const useCustomizerStore = create<CustomizerStoreState>()(
         appEvents.emit({ name: "variant:selected", category, variantId: String(value), via });
       },
 
-      setBaseDrink: (drinkId, category) => set({ baseDrinkId: drinkId, baseDrinkCategory: category }),
+      setBaseDrink: (drinkId, category) => {
+        // A genuinely different drink invalidates any previously-applied
+        // recommendation (it described the *old* drink); re-setting the
+        // same drink (the concierge's own `?drink=` effect re-running,
+        // for instance) leaves it alone.
+        const changingDrink = get().baseDrinkId !== drinkId;
+        set({
+          baseDrinkId: drinkId,
+          baseDrinkCategory: category,
+          appliedRecommendationId: changingDrink ? null : get().appliedRecommendationId,
+        });
+      },
+
+      markRecommendationApplied: (recommendationId) => set({ appliedRecommendationId: recommendationId }),
+
+      loadRecipeSnapshot: (baseDrinkId, baseDrinkCategory, selection, appliedRecommendationId) => {
+        const { history, historyIndex } = pushHistory(get().history, get().historyIndex, selection);
+        set({ selection, history, historyIndex, preview: null, baseDrinkId, baseDrinkCategory, appliedRecommendationId });
+        appEvents.emit({ name: "recipe:changed", ingredientCount: selection.ingredients.length });
+      },
 
       addIngredient: (ingredientId) => {
         const current = get().selection;
@@ -248,6 +289,7 @@ export const useCustomizerStore = create<CustomizerStoreState>()(
         savedPresets: state.savedPresets,
         baseDrinkId: state.baseDrinkId,
         baseDrinkCategory: state.baseDrinkCategory,
+        appliedRecommendationId: state.appliedRecommendationId,
       }),
     },
   ),

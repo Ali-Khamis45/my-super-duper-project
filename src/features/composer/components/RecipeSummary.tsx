@@ -5,6 +5,7 @@ import { resolveDrink } from "@/features/menu/data/drinks";
 import { useCustomizerStore } from "@/stores/customizer-store";
 
 import { resolveIngredient } from "../data/ingredients";
+import { calculateIngredientsTotal } from "../lib/calculateIngredientsTotal";
 
 /** "Drink name, ingredients list, layers order, values" — a read-only summary of the whole recipe, reusing the menu's own drink/category data rather than duplicating it. */
 export function RecipeSummary() {
@@ -14,10 +15,7 @@ export function RecipeSummary() {
   const drink = resolveDrink(baseDrinkId);
   const category = drink ? resolveCategory(drink.category) : null;
 
-  const ingredientsTotal = ingredients.reduce((sum, placement) => {
-    const ingredient = resolveIngredient(placement.ingredientId);
-    return sum + (ingredient ? ingredient.priceModifier * placement.quantity : 0);
-  }, 0);
+  const ingredientsTotal = calculateIngredientsTotal(ingredients);
   const total = (drink?.price ?? 0) + ingredientsTotal;
 
   return (
