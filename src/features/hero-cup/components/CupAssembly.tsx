@@ -1,11 +1,12 @@
 "use client";
 
 import { useFrame } from "@react-three/fiber";
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import type { Group } from "three";
 
 import { float } from "@/engine/motion/presets";
 import { useSmoothedVector3 } from "@/engine/performance/useSmoothedVector3";
+import { publishInteractionState } from "@/engine/shaders/common";
 
 import { useCupInteractionState } from "../hooks/useCupInteractionState";
 import { useLiquidPhysics } from "../hooks/useLiquidPhysics";
@@ -73,6 +74,16 @@ export function CupAssembly({ reducedMotion, partOverrides, scale, ingredientLay
   const lidPosition = useSmoothedVector3(partOverrides?.lid?.position ?? ZERO_VECTOR);
   const lidRotation = useSmoothedVector3(partOverrides?.lid?.rotation ?? ZERO_VECTOR);
   const sleevePosition = useSmoothedVector3(partOverrides?.sleeve?.position ?? ZERO_VECTOR);
+
+  // Sprint 3.8 fix: `uIsInteracting` ("is the hero cup currently being
+  // dragged" — its own doc comment) was typed since Sprint 2.1 with a real
+  // publisher function that had zero call sites — this is that first real
+  // one. `state` is this assembly's own interaction-state-machine value,
+  // already computed above; `"drag"` is the one state that doc comment
+  // describes.
+  useEffect(() => {
+    publishInteractionState(state === "drag");
+  }, [state]);
 
   useFrame(({ clock }, delta) => {
     const group = groupRef.current;

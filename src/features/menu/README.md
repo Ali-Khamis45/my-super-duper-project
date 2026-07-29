@@ -32,6 +32,10 @@ No `hooks/` or `registry/` folder — search/filter is local `useState` + `useMe
 - **This feature borrows from `engine/`/`design-system/`**: `GlowCard`, motion presets (`fadeUp`/`stagger`/`fadeIn`), `usePrefersReducedMotion`, `track()`.
 - **This feature does not own**: the Navbar, design tokens, or the 3D rendering engine — Sprint 3.1's brief is explicitly "Menu · Drinks · Categories · Search · Filtering," not a 3D preview per drink (that's a live-customizer-era concern, Sprint 3.2+, not invented ahead of it here).
 
+## Update (Sprint 3.8, Final Polish)
+
+`CategoryFilter` harmonized onto `role="radiogroup"`/`role="radio"`/`aria-checked` (was `aria-pressed`) — a dedicated audit found this single-select group was using the toggle-button semantics meant for independently-togglable controls, misleading since selecting one category always deselects another. Matches the pattern `features/customizer/`'s `VariantSwatchGroup` already established for the same "pick exactly one" shape.
+
 ## Known simplifications
 
 - No real backend/CMS — `data/drinks.ts` is static, typed, first-party data, the same category of honest stand-in as the hero cup's procedural geometry.

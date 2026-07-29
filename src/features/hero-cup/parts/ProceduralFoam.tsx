@@ -10,6 +10,7 @@ import { creamColor } from "@/engine/theme/ColorSchemes";
 
 import { createFoamGeometry } from "../geometry/cupGeometry";
 import { CUP_RIM_HEIGHT, cupRadiusAtHeight } from "../geometry/cupProfile";
+import { materialOverridesToVariant } from "../lib/materialOverridesToVariant";
 import type { CupPartProps } from "../registry/types";
 
 export const FOAM_HEIGHT = CUP_RIM_HEIGHT - 0.07;
@@ -24,21 +25,18 @@ export const ProceduralFoam = forwardRef<Group, CupPartProps>(function Procedura
   const geometry = useMemo(() => createFoamGeometry(cupRadiusAtHeight(FOAM_HEIGHT) * 0.88), []);
 
   const material = useMemo(() => {
-    const colorObj = creamColor(100);
-
-    if (materialOverrides) {
-      const mat = createFoamMaterial(colorObj);
-      updateMaterialParams(mat, "foam", materialOverrides);
-      if (materialOverrides.color) updateMaterialColor(mat, new THREE.Color(materialOverrides.color));
-      applyFoamSurface(mat);
-      return mat;
-    }
-
-    // applyFoamSurface runs inside the factory — only on a real cache miss,
-    // same reasoning as ProceduralCoffee.
+    const colorObj = materialOverrides?.color ? new THREE.Color(materialOverrides.color) : creamColor(100);
     const colorHex = `#${colorObj.getHexString()}`;
-    return getOrCreateMaterial({ surface: "foam", colorHex }, () => {
+
+    // Sprint 3.8 fix: routed through the shared cache, same reasoning and
+    // shape as ProceduralCoffee's identical fix — `applyFoamSurface` still
+    // only runs inside the factory (a genuine cache miss), never on a hit.
+    return getOrCreateMaterial({ surface: "foam", colorHex, variant: materialOverridesToVariant(undefined, materialOverrides) }, () => {
       const mat = createFoamMaterial(colorObj);
+      if (materialOverrides) {
+        updateMaterialParams(mat, "foam", materialOverrides);
+        if (materialOverrides.color) updateMaterialColor(mat, colorObj);
+      }
       applyFoamSurface(mat);
       return mat;
     }) as THREE.MeshPhysicalMaterial;

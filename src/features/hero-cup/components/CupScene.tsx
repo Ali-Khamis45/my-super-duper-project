@@ -17,8 +17,9 @@ import { PerformanceSampler } from "@/engine/performance/PerformanceSampler";
 import { resolveQualityPolicy } from "@/engine/performance/qualityPolicy";
 import { useSmoothedValue } from "@/engine/performance/useSmoothedValue";
 import type { SceneCompositionRoot } from "@/engine/scene/types";
+import { publishLightingIntensity, publishQualityTier, publishTheme } from "@/engine/shaders/common";
 import { ShaderDiagnosticsProbe } from "@/engine/shaders/DevDiagnosticsProbe";
-import { creamColor, espressoColor } from "@/engine/theme/ColorSchemes";
+import { brandAccentColor, creamColor, espressoColor } from "@/engine/theme/ColorSchemes";
 import { useActiveTheme } from "@/engine/theme/ThemeEngine";
 import { themeToPresetMap } from "@/engine/theme/LightingThemes";
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
@@ -74,6 +75,22 @@ export function CupScene({
     notifyThemeMaterialsUpdated(theme);
   }, [theme]);
 
+  // Sprint 3.8 fix: `uThemeMode`/`uColorTheme`/`uQualityTier` were typed in
+  // the shared uniform block since Sprint 2.1/2.5 with real publisher
+  // functions that had zero call sites anywhere — frozen at their
+  // module-load defaults for every shader that might read them. `CupScene`
+  // already computes `theme`/`tier` for its own DOM-facing needs; this is
+  // the single scene-composition-root call site that publishes them for
+  // any shader (present or future) that opts in, the same by-reference
+  // convention `uStorytellingProgress` already established.
+  useEffect(() => {
+    publishTheme(theme, brandAccentColor(500));
+  }, [theme]);
+
+  useEffect(() => {
+    publishQualityTier(tier);
+  }, [tier]);
+
   // Sprint 2.5's Creative Budget item: bloom intensity — a plain float,
   // cheap to interpolate and the parameter most visibly affected by a tier
   // change — damps toward its tier-driven target instead of snapping.
@@ -98,6 +115,14 @@ export function CupScene({
   const smoothedDirectionalIntensity = useSmoothedValue(lightingPreset.directional.intensity, 6);
   const ambientIntensity = reducedMotion ? lightingPreset.ambient.intensity : smoothedAmbientIntensity;
   const directionalIntensity = reducedMotion ? lightingPreset.directional.intensity : smoothedDirectionalIntensity;
+
+  // "the active lighting preset's directional intensity" — `uLightingIntensity`'s
+  // own doc comment; publishes the same smoothed value the directional
+  // light itself renders with, so a shader reading this stays in sync with
+  // what's actually lighting the scene, not the pre-transition target.
+  useEffect(() => {
+    publishLightingIntensity(directionalIntensity);
+  }, [directionalIntensity]);
 
   // Structurally checked against the frozen Scene Composition contract
   // (docs/22_MANAGER_INTERFACES.md) rather than left as ad hoc props — a

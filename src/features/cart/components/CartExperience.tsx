@@ -44,10 +44,13 @@ export function CartExperience() {
             initial={reducedMotion ? false : "hidden"}
             animate={reducedMotion ? undefined : "visible"}
             variants={fadeIn}
-            className="text-muted-foreground flex flex-col items-center gap-3 rounded-lg border border-dashed py-16 text-center"
+            className="text-muted-foreground bg-muted/30 flex flex-col items-center gap-4 rounded-xl border border-dashed py-24 text-center"
           >
-            <ShoppingBag className="size-10 opacity-40" aria-hidden="true" />
-            <p>Your cart is empty.</p>
+            <ShoppingBag className="size-14 opacity-30" aria-hidden="true" />
+            <div className="flex flex-col gap-1">
+              <p className="text-foreground font-display text-lg">Your cart is empty</p>
+              <p className="text-sm">Ready when you are — browse the menu to get started.</p>
+            </div>
             <Button nativeButton={false} render={<Link href="/menu" />}>Browse the menu</Button>
           </motion.div>
         ) : (
@@ -86,7 +89,11 @@ export function CartExperience() {
                     <p className="text-muted-foreground text-xs">${snapshot.unitPrice.toFixed(2)}</p>
                   </div>
                   <div className="flex shrink-0 items-center gap-1">
-                    <Button type="button" variant="ghost" size="icon-sm" aria-label={`Remove ${snapshot.baseDrinkName} from favorites`} onClick={() => toggleFavorite(snapshot)}>
+                    {/* Every card in this list is, definitionally, already
+                        favorited — `aria-pressed` always true here, matching
+                        the same toggle-button pattern `CartItemRow`'s own
+                        favorite button uses (Sprint 3.8 consistency fix). */}
+                    <Button type="button" variant="ghost" size="icon-sm" aria-label={`Remove ${snapshot.baseDrinkName} from favorites`} aria-pressed={true} onClick={() => toggleFavorite(snapshot)}>
                       <Heart className="fill-brand-accent-500 text-brand-accent-500 size-3.5" aria-hidden="true" />
                     </Button>
                     <Button type="button" variant="outline" size="sm" onClick={() => addFavoriteToCart(snapshot.id)}>

@@ -12,13 +12,21 @@ interface CategoryFilterProps {
   onChange: (category: DrinkCategoryId | "all") => void;
 }
 
-/** A toggle-button group, not a new tab primitive — `Button`'s existing `outline`/`secondary` variants plus `aria-pressed` cover this without adding a shadcn `tabs` dependency for one use site. */
+/**
+ * A single-select group, not a set of independently-toggleable buttons —
+ * `role="radiogroup"`/`role="radio"`/`aria-checked` (Sprint 3.8 fix,
+ * matching `VariantSwatchGroup.tsx`'s established pattern: `aria-pressed`
+ * communicates independent toggles, which is misleading here since
+ * selecting one option always deselects another). `Button`'s existing
+ * `outline`/`secondary` variants still provide the visual state.
+ */
 export function CategoryFilter({ active, onChange }: CategoryFilterProps) {
   return (
-    <div role="group" aria-label="Filter by category" className="flex flex-wrap gap-2">
+    <div role="radiogroup" aria-label="Filter by category" className="flex flex-wrap gap-2">
       <Button
         variant={active === "all" ? "secondary" : "outline"}
-        aria-pressed={active === "all"}
+        role="radio"
+        aria-checked={active === "all"}
         onClick={() => onChange("all")}
       >
         <Coffee className="size-3.5" aria-hidden="true" />
@@ -31,7 +39,8 @@ export function CategoryFilter({ active, onChange }: CategoryFilterProps) {
           <Button
             key={category.id}
             variant={isActive ? "secondary" : "outline"}
-            aria-pressed={isActive}
+            role="radio"
+            aria-checked={isActive}
             onClick={() => onChange(category.id)}
           >
             <Icon className="size-3.5" aria-hidden="true" />

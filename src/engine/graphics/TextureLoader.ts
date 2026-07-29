@@ -87,7 +87,12 @@ export function createLogoTexture(size = 256): THREE.CanvasTexture {
  * docs/3d-asset-pipeline.md's "Known simplifications" — this only avoids
  * redundant *generation* of the current flat-plane badge's texture.
  */
-const logoTextureCache = createSyncCache<THREE.CanvasTexture>({ maxEntries: 4 });
+// Sprint 3.8 fix: `onEvicted` was missing — every sibling cache (materials,
+// GLBs, textures) disposes its evicted GPU resource, this one silently
+// didn't. Latent today (the only real caller always passes `size=256`, so
+// the 4-entry cap is never hit), but a real WebGL-texture leak waiting for
+// a second logo size.
+const logoTextureCache = createSyncCache<THREE.CanvasTexture>({ maxEntries: 4, onEvicted: (_key, texture) => texture.dispose() });
 
 export function getOrCreateLogoTexture(size = 256): THREE.CanvasTexture {
   return logoTextureCache.getOrCreate(`logo-${size}`, () => createLogoTexture(size));

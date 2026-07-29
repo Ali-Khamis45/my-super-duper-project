@@ -4,7 +4,7 @@ import { useEffect, useMemo } from "react";
 
 import { performanceManager } from "@/engine/performance";
 import { resolveQualityPolicy } from "@/engine/performance/qualityPolicy";
-import { publishStorytellingProgress } from "@/engine/shaders/common/uniforms";
+import { publishStorytellingProgress } from "@/engine/shaders/common";
 import { CupCanvasLoader } from "@/features/hero-cup/components/CupCanvasLoader";
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 import { useStorytellingStore } from "@/stores/storytelling-store";
@@ -31,9 +31,25 @@ import { resolveStoryIngredientLayers } from "../lib/resolveStoryIngredientLayer
  */
 export function StoryCanvas() {
   const activeChapterId = useStorytellingStore((state) => state.activeChapterId);
-  const chapterProgress = useStorytellingStore((state) => state.chapterProgress);
   const reducedMotion = usePrefersReducedMotion();
   const chapter = resolveChapter(activeChapterId);
+  // Sprint 3.8 perf fix: `chapterProgress` updates on every GSAP scroll
+  // tick (`useScrollTimeline.ts`'s `onUpdate`), but only 2 of 7 chapters
+  // (Crafting's assembly, Customization's ingredient reveal) ever read it
+  // in their rendered output — and neither does under reduced motion,
+  // which always uses a fixed end-state progress instead. Subscribing to
+  // the raw field unconditionally re-rendered this whole component (and
+  // everything downstream: CupCanvasLoader -> CupCanvas -> CupScene ->
+  // CupAssembly) on every scroll frame, for all 7 chapters — the exact
+  // re-render risk `createBridgeStore`'s `getValue()`/`useValue()` split
+  // exists to prevent, and what `docs/18_ENGINEERING_CONTRACTS.md`'s
+  // "chapter changes are discrete/infrequent enough" reasoning correctly
+  // describes for `activeChapterId` but not for this field. Selecting a
+  // *derived* value that only changes when a chapter genuinely needs it
+  // keeps every other chapter's scroll from re-rendering the 3D tree at
+  // all, without introducing a second store.
+  const needsContinuousProgress = !reducedMotion && (chapter?.hasAssemblyMoment === true || chapter?.featuredIngredientIds !== undefined);
+  const chapterProgress = useStorytellingStore((state) => (needsContinuousProgress ? state.chapterProgress : 0));
   // "Quality tiers must automatically scale storytelling effects" — read
   // literally as *scale*, the same "never disable, only scale" policy this
   // table already applies everywhere else it isn't `bloomEnabled`.

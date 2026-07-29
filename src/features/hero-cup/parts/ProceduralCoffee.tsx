@@ -11,6 +11,7 @@ import { useActiveTheme } from "@/engine/theme/ThemeEngine";
 import { espressoColor } from "@/engine/theme/ColorSchemes";
 
 import { CUP_RIM_HEIGHT, cupRadiusAtHeight } from "../geometry/cupProfile";
+import { materialOverridesToVariant } from "../lib/materialOverridesToVariant";
 import type { CupPartProps } from "../registry/types";
 
 export const COFFEE_HEIGHT = CUP_RIM_HEIGHT - 0.12;
@@ -30,26 +31,30 @@ export const ProceduralCoffee = forwardRef<Group, CupPartProps>(function Procedu
   const { lighting: lightingPresetName } = themeToPresetMap[theme];
 
   const material = useMemo(() => {
-    const colorObj = espressoColor(900);
+    const colorObj = materialOverrides?.color ? new THREE.Color(materialOverrides.color) : espressoColor(900);
     const envMapIntensity = resolveEnvMapIntensity(lightingPresetName, SURFACE_PRESETS.liquid.envMapIntensity ?? 1);
-
-    if (materialOverrides) {
-      const mat = createLiquidMaterial(colorObj, { envMapIntensity });
-      updateMaterialParams(mat, "liquid", materialOverrides);
-      if (materialOverrides.color) updateMaterialColor(mat, new THREE.Color(materialOverrides.color));
-      applyCoffeeSurface(mat);
-      return mat;
-    }
-
-    // applyCoffeeSurface runs inside the factory — only on a real cache
-    // miss. Calling it after getOrCreateMaterial returns (on a cache hit)
-    // would re-set onBeforeCompile and force a wasted recompile.
     const colorHex = `#${colorObj.getHexString()}`;
-    return getOrCreateMaterial({ surface: "liquid", colorHex, variant: lightingPresetName }, () => {
-      const mat = createLiquidMaterial(colorObj, { envMapIntensity });
-      applyCoffeeSurface(mat);
-      return mat;
-    }) as THREE.MeshPhysicalMaterial;
+
+    // Sprint 3.8 fix: routed through the shared cache like every other
+    // part's override branch (`ProceduralCup`/`Sleeve`/`Lid`) — this used
+    // to construct a one-off material and call `applyCoffeeSurface`
+    // (an `onBeforeCompile` shader recompile) directly on every override
+    // change, bypassing the cache entirely. `applyCoffeeSurface` still
+    // only runs inside the factory, i.e. only on a genuine cache miss —
+    // calling it after a cache hit would re-set `onBeforeCompile` and
+    // force a wasted recompile, the exact cost this fix removes.
+    return getOrCreateMaterial(
+      { surface: "liquid", colorHex, variant: materialOverridesToVariant(lightingPresetName, materialOverrides) },
+      () => {
+        const mat = createLiquidMaterial(colorObj, { envMapIntensity });
+        if (materialOverrides) {
+          updateMaterialParams(mat, "liquid", materialOverrides);
+          if (materialOverrides.color) updateMaterialColor(mat, colorObj);
+        }
+        applyCoffeeSurface(mat);
+        return mat;
+      },
+    ) as THREE.MeshPhysicalMaterial;
   }, [materialOverrides, lightingPresetName]);
 
   // This part owns *applying* physics to its own material every frame —

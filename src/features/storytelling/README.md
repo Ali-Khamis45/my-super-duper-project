@@ -45,6 +45,12 @@ Narrative state (`activeChapterId`/`chapterProgress`/`skipped`) lives in `stores
 - **This feature borrows from `features/composer/`**: the real ingredient catalog (`resolveIngredient`) for the Customization chapter's reveal — never a second, storytelling-only ingredient list.
 - **This feature does not own**: the cup's geometry/materials, the customizer's or concierge's own state, or ingredient compatibility rules.
 
+## Update (Sprint 3.8, Final Polish)
+
+A real, measurable perf bug found by a dedicated audit and fixed: `StoryCanvas.tsx` subscribed to `storytelling-store`'s `chapterProgress` field unconditionally — since that field updates on every GSAP scroll tick (not discretely, unlike `activeChapterId`), this re-rendered the entire 3D scene tree (`StoryCanvas` → `CupCanvasLoader` → `CupCanvas` → `CupScene` → `CupAssembly`) on every scroll frame, for all 7 chapters, even though only 2 (Crafting's assembly moment, Customization's ingredient reveal) ever read it. Fixed by deriving a value that only changes when the active chapter genuinely needs continuous progress (`!reducedMotion && (chapter?.hasAssemblyMoment || chapter?.featuredIngredientIds)`) — every other chapter's scroll no longer touches the 3D tree at all. `docs/18_ENGINEERING_CONTRACTS.md`'s own `chapterProgress` row previously claimed this wasn't needed ("chapter changes are discrete/infrequent enough") — that reasoning was correct for `activeChapterId`, wrong for `chapterProgress` itself; corrected in that doc alongside the code fix.
+
+Also found, not resolved this sprint: the Architecture Freeze's own scenario-7 risk (free cup drag-rotation and this route's scroll-driven camera transitions can both want the camera at once) remains open, exactly as flagged when this feature shipped in Sprint 3.7 — a real UX design decision, not a mechanical fix, tracked in [RC1_RELEASE_CANDIDATE_REPORT.md](../../../docs/RC1_RELEASE_CANDIDATE_REPORT.md)'s Risk Register (R-22).
+
 ## Known simplifications
 
 - **CSS `position: sticky`, not GSAP pinning**: the sticky 3D column uses plain CSS rather than `ScrollTrigger`'s `pin` option — simpler, more robust, and avoids a real risk category (pin-related layout reflow/`pinSpacing` edge cases) that's hard to visually iterate on reliably in this environment. GSAP `ScrollTrigger` is still real and load-bearing here — it drives chapter detection and progress publishing — just not pinning specifically.

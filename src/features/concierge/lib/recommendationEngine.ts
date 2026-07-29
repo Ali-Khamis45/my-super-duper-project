@@ -98,11 +98,11 @@ function scoreCaffeine(drink: Drink, profile: TasteProfile): RecommendationReaso
       return [{ label: "Contains real caffeine", weight: -CAFFEINE_MATCH_WEIGHT }];
     case "low":
       if (isLowCaffeine) return [{ label: "Naturally lighter on caffeine than a coffee drink", weight: CAFFEINE_MATCH_WEIGHT }];
-      if (isStrong) return [{ label: "A strong caffeine hit, more than 'low'", weight: -TEMPERATURE_MISMATCH_WEIGHT }];
+      if (isStrong) return [{ label: "A strong caffeine hit, more than 'low'", weight: -CAFFEINE_MATCH_WEIGHT }];
       return [];
     case "regular":
-      if (drink.category === "espresso" || drink.category === "cold-brew") return [{ label: "Regular coffee-strength caffeine", weight: TEMPERATURE_MATCH_WEIGHT }];
-      if (isCaffeineFree) return [{ label: "Little to no caffeine", weight: -TEMPERATURE_MISMATCH_WEIGHT }];
+      if (drink.category === "espresso" || drink.category === "cold-brew") return [{ label: "Regular coffee-strength caffeine", weight: CAFFEINE_MATCH_WEIGHT }];
+      if (isCaffeineFree) return [{ label: "Little to no caffeine", weight: -CAFFEINE_MATCH_WEIGHT }];
       return [];
     case "high":
       if (isStrong) return [{ label: "A bold, high-caffeine pull", weight: CAFFEINE_MATCH_WEIGHT }];

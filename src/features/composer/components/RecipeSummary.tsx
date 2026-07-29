@@ -1,5 +1,7 @@
 "use client";
 
+import { useMemo } from "react";
+
 import { resolveCategory } from "@/features/menu/data/categories";
 import { resolveDrink } from "@/features/menu/data/drinks";
 import { useCustomizerStore } from "@/stores/customizer-store";
@@ -15,8 +17,10 @@ export function RecipeSummary() {
   const drink = resolveDrink(baseDrinkId);
   const category = drink ? resolveCategory(drink.category) : null;
 
-  const ingredientsTotal = calculateIngredientsTotal(ingredients);
-  const total = (drink?.price ?? 0) + ingredientsTotal;
+  // Sprint 3.8 fix: matches `PriceBreakdown.tsx`'s own "Memoize derived
+  // totals" (the brief's Performance requirement) for the identical
+  // drink-name/ingredients/total shape — this sibling had skipped it.
+  const total = useMemo(() => (drink?.price ?? 0) + calculateIngredientsTotal(ingredients), [drink?.price, ingredients]);
 
   return (
     <div className="bg-muted/50 flex flex-col gap-1.5 rounded-lg p-3 text-sm">

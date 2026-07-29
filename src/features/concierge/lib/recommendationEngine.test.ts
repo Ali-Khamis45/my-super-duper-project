@@ -54,6 +54,30 @@ describe("generateRecommendation", () => {
     expect(result!.top.reasons.length).toBeGreaterThan(0);
   });
 
+  it("every real caffeine match — 'none', 'regular', and 'high' — contributes the same magnitude weight (a real Sprint 3.8 regression fix: 'regular' previously scored a weaker, wrong constant)", () => {
+    const none = generateRecommendation(profile({ caffeineLevel: "none" }), drinks, { now: FIXED_NOW });
+    const noneReason = none!.top.reasons.find((reason) => reason.label.includes("Caffeine-free"));
+
+    const regular = generateRecommendation(
+      profile({ temperature: "hot", caffeineLevel: "regular", tastePreference: "bitter", sweetness: 1, bitterness: 5, milkPreference: "none" }),
+      drinks,
+      { now: FIXED_NOW },
+    );
+    const regularReason = regular!.top.reasons.find((reason) => reason.label === "Regular coffee-strength caffeine");
+
+    const high = generateRecommendation(
+      profile({ temperature: "hot", caffeineLevel: "high", tastePreference: "bitter", sweetness: 1, bitterness: 5, milkPreference: "none" }),
+      drinks,
+      { now: FIXED_NOW },
+    );
+    const highReason = high!.top.reasons.find((reason) => reason.label === "A bold, high-caffeine pull");
+
+    expect(regular!.top.drinkId).toBe("classic-espresso");
+    expect(regularReason?.weight).toBe(4);
+    expect(noneReason?.weight).toBe(4);
+    expect(highReason?.weight).toBe(4);
+  });
+
   it("an iced preference recommends a real cold drink, not an arbitrary one", () => {
     const result = generateRecommendation(profile({ temperature: "iced", caffeineLevel: "none" }), drinks, { now: FIXED_NOW });
     // original-cold-brew wins here on the combination of the iced signal

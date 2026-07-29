@@ -86,6 +86,10 @@ export const INGREDIENTS: readonly Ingredient[] = [
     icon: Snowflake,
     priceModifier: 0,
     compatibleWith: ["cold-brew"],
+    // A deliberate, reviewed exception to the OKLCH-token contract (Sprint
+    // 3.8): the design system's 3-ramp token set (espresso/cream/brand
+    // accent) has no icy-blue step to derive this from — a real gap, not
+    // an oversight, same reasoning as the sprinkle palette below.
     color: "#dceef5",
     shape: "ice",
   },
@@ -106,7 +110,10 @@ export const INGREDIENTS: readonly Ingredient[] = [
     icon: Candy,
     priceModifier: 0.5,
     compatibleWith: "all",
-    color: "#e8d5a3",
+    // Sprint 3.8 fix: was a raw hex literal with no token-derivation
+    // excuse (unlike ice/sprinkles) — a lighter step of the same brand-
+    // accent ramp "caramel" already uses, not a second, disconnected gold.
+    color: hex(brandAccentColor(300)),
     shape: "ring",
   },
 ];

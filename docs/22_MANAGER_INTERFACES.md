@@ -53,17 +53,25 @@ interface ICameraManager {
   registerPath(name: CameraPathName, def: CameraPathDefinition): void;
 }
 
-// Runtime component contract
+// Runtime component contract — as actually shipped (Sprint 3.8 docs-sync
+// fix; corrected against `engine/camera/CameraRig.tsx`'s real prop shape,
+// which diverged from this sketch without the doc being updated).
+// `path`/`CameraPathName` were never built — Sprint 3.7's `/story` brief
+// explicitly said "implement through new presets only," and `CameraRig`
+// only resolves its preset once per React render (not per-frame), so a
+// continuously-scrubbed `path` prop as sketched here would need a real,
+// separate design pass this project has deliberately not spent yet. See
+// docs/26_API_STABILITY.md's `CameraPathName` row for the full reasoning.
 interface CameraRigProps {
-  preset?: CameraPresetName;
-  path?: { name: CameraPathName; progress: number }; // progress from scrollProgress bridge store
-  parallax?: boolean;
-  enabled: boolean; // false under reduced motion: snap once, no drift
-  transitionDuration?: number;
+  preset: CameraPresetName;
+  parallaxSource?: RefObject<{ x: number; y: number }>; // was documented as `parallax?: boolean`
+  parallaxStrength?: number;
+  enabled?: boolean; // false under reduced motion: snap once, no drift
+  transitionDamping?: number; // was documented as `transitionDuration?: number` — a damping constant, not a duration
 }
 ```
 
-**Events emitted**: `camera:transition-start`, `camera:transition-complete` (new — needed so the Interaction Manager can suppress free drag-rotate while a scroll-driven path transition owns the camera, per [15_ARCHITECTURE_FREEZE.md](15_ARCHITECTURE_FREEZE.md) scenario 7).
+**Events emitted**: `camera:transition-start`, `camera:transition-complete` (real, emitting since Sprint 2.1).
 **Lifecycle**: registry populated at module load (static); `CameraRig` instance lifecycle matches its scene composition root.
 **Ownership**: registry is a module-level singleton; one `CameraRig` instance per scene composition root.
 **Dependencies**: Registry factory (`createPartRegistry`-shaped), `scrollProgress` bridge store (read-only, imperative), EventBus (emit only).
@@ -122,11 +130,17 @@ interface IMaterialManager {
   getOrCreate(key: MaterialCacheKey, factory: () => THREE.Material): THREE.Material;
   invalidate(key: MaterialCacheKey): void;
   clear(): void; // full sweep, e.g. on leaving the customizer route
+  // Sprint 3.8 docs-sync fix — real, shipped, additive growth beyond this
+  // original sketch (`engine/materials/cache.ts`), never reflected here:
+  updateMaterialParams(material: THREE.Material, surface: string, params: object): void;
+  updateMaterialColor(material: THREE.Material, color: THREE.Color): void;
+  materialCacheKeyToString(key: MaterialCacheKey): string;
+  getMaterialCacheStats(): { size: number; hits: number; misses: number };
 }
 ```
 
 **Note**: `MaterialCacheKey` is a structured type, not a free-form string — see [18_ENGINEERING_CONTRACTS.md](18_ENGINEERING_CONTRACTS.md)'s Review section for why a raw string key was rejected during this pass.
-**Events**: none — pure cache, no cross-manager signal needed.
+**Events (Sprint 3.8 docs-sync fix)**: `material:created`/`material:updated`/`material:disposed` — real, emitting, documented in [19_EVENT_CATALOG.md](19_EVENT_CATALOG.md); this row's original "none — pure cache" was written before those shipped and was never updated.
 **Lifecycle**: cache is a module-level `Map`, capped and LRU-evicted (~50 entries), lives for the session.
 **Ownership**: module-level singleton, shared by every scene composition root (materials aren't route-scoped — a color compiled on the hero route is still valid if requested again elsewhere).
 **Dependencies**: Theme Engine (color resolution), Performance Manager (read-only: tier may cap max resolution/complexity of generated materials).
@@ -269,11 +283,14 @@ interface BridgeStore<T> {
 **Responsibilities**: sample FPS, step an adaptive quality tier down under sustained low performance, never automatically step back up mid-session.
 
 ```ts
-type QualityTier = "high" | "medium" | "low";
+// 5 tiers as of Sprint 2.5 (a named, sanctioned Zero-Rewrite-Policy
+// exception — the user's own brief named all 5 explicitly), not the
+// original 3 sketched here at RC0.
+type QualityTier = "minimal" | "low" | "medium" | "high" | "ultra";
 
 interface IPerformanceManager {
   readonly tier: BridgeStore<QualityTier>;
-  sampleFrame(deltaMs: number): void;
+  sampleFrame(fps: number): void; // Sprint 3.8 docs-sync fix — shipped as `fps`, not the originally-sketched `deltaMs`; the caller (`PerformanceSampler.tsx`) already computes FPS before calling this
 }
 ```
 
@@ -305,6 +322,7 @@ interface IAnalyticsManager {
 ```
 
 **Relationship to the EventBus, clarified** (a real ambiguity found during this pass — see [18_ENGINEERING_CONTRACTS.md](18_ENGINEERING_CONTRACTS.md)'s Review): the EventBus is internal, typed, synchronous, cross-manager coordination. Analytics is external reporting, allowed to be async, allowed to silently drop under sink backpressure without breaking the app. Where both care about the same real-world occurrence (e.g. a cup rotation), Analytics subscribes to the EventBus's `cup:rotated` and translates it into `hero_cup_rotated` — they are never the same mechanism wearing two names.
+**Sprint 3.8 docs-sync finding**: `setSink`/`AnalyticsSink` as sketched above do not exist in the real, shipped `engine/analytics/tracking.ts` — `track()` hardcodes a `console.debug`-in-dev/no-op-in-prod branch directly, with a comment asking a future maintainer to hand-edit the function body when a real provider is chosen, not the swappable-sink mechanism this doc promises. `docs/26_API_STABILITY.md` marks this whole manager "Stable — already shipped Milestone 1," which is only true of `track()` and the event union, not the sink seam. Not fixed this sprint (a real, if small, engineering task, not a docs-only correction) — flagged in [RC1_RELEASE_CANDIDATE_REPORT.md](RC1_RELEASE_CANDIDATE_REPORT.md) as a Milestone 4 candidate (a real analytics provider is exactly when this seam would get built for real).
 **Lifecycle**: module-level singleton; sink is swappable (dev console today, a real provider later — [01_ARCHITECTURE.md](01_ARCHITECTURE.md)'s documented swap point).
 **Ownership**: module-level.
 **Dependencies**: EventBus (subscribe, for events with both internal and reporting relevance).

@@ -84,7 +84,7 @@ test("quantity editing and removing an item on the cart page work, and the empty
   await expect(page.getByText("$11.00")).toHaveCount(2);
 
   await page.getByRole("button", { name: "Remove Mocha from cart" }).click();
-  await expect(page.getByText("Your cart is empty.")).toBeVisible();
+  await expect(page.getByText("Your cart is empty")).toBeVisible();
 });
 
 test("favoriting an item on the cart page, then re-adding it from Favorites", async ({ page }) => {
@@ -95,11 +95,11 @@ test("favoriting an item on the cart page, then re-adding it from Favorites", as
 
   await page.getByRole("button", { name: "Save Mocha to favorites" }).click();
   await page.getByRole("button", { name: "Remove Mocha from cart" }).click();
-  await expect(page.getByText("Your cart is empty.")).toBeVisible();
+  await expect(page.getByText("Your cart is empty")).toBeVisible();
 
   await expect(page.getByRole("heading", { name: "Favorites" })).toBeVisible();
   await page.getByRole("button", { name: "Add to cart" }).click();
-  await expect(page.getByText("Your cart is empty.")).toHaveCount(0);
+  await expect(page.getByText("Your cart is empty")).toHaveCount(0);
 });
 
 test("editing a cart item routes back to the customizer with the recipe restored", async ({ page }) => {
@@ -137,7 +137,7 @@ test("checkout requires name and email before Place Order is enabled, and comple
 
   // The cart is cleared after a completed order.
   await page.goto("/cart");
-  await expect(page.getByText("Your cart is empty.")).toBeVisible();
+  await expect(page.getByText("Your cart is empty")).toBeVisible();
 });
 
 test("visiting checkout or the confirmation page with nothing to show renders a real, non-broken empty state", async ({ page }) => {

@@ -38,9 +38,12 @@ test("an unmatched search shows the empty state, not a blank grid", async ({ pag
 
 test("category filter narrows the catalog and marks itself active", async ({ page }) => {
   await page.goto("/menu");
-  const teaFilter = page.getByRole("button", { name: "Tea", exact: true });
+  // Sprint 3.8: harmonized onto the same radiogroup/radio/aria-checked
+  // pattern `VariantSwatchGroup` established (a single-select group, not
+  // independently-toggleable buttons) — see docs/reviews/sprint-3.8-review.md.
+  const teaFilter = page.getByRole("radio", { name: "Tea", exact: true });
   await teaFilter.click();
-  await expect(teaFilter).toHaveAttribute("aria-pressed", "true");
+  await expect(teaFilter).toHaveAttribute("aria-checked", "true");
   await expect(page.getByRole("button", { name: /view details for/i })).toHaveCount(3);
 });
 

@@ -6,6 +6,8 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { Button } from "@/components/ui/button";
+import { durations } from "@/engine/motion/durations";
+import { easings } from "@/engine/motion/easings";
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 import { useCartStore } from "@/stores/cart-store";
 import { useCustomizerStore } from "@/stores/customizer-store";
@@ -93,7 +95,11 @@ export function AddToCartButton() {
             style={{ left: flight.startX, top: flight.startY }}
             initial={{ opacity: 1, scale: 1, x: 0, y: 0 }}
             animate={{ opacity: 0, scale: 0.4, x: flight.deltaX, y: flight.deltaY }}
-            transition={{ duration: 0.55, ease: [0.4, 0, 0.2, 1] }}
+            // Sprint 3.8 fix: was a hardcoded duration+cubic-bezier
+            // duplicating what `durations.slow`/`easings.premium` already
+            // define — the project's one eased-motion token, not a second,
+            // independently-tuned curve for this one flight.
+            transition={{ duration: durations.slow, ease: easings.premium }}
             onAnimationComplete={() => setFlight(null)}
           >
             <ShoppingBag className="size-3" />

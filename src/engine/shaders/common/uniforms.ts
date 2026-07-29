@@ -16,13 +16,11 @@ import type { QualityTier } from "@/engine/performance/types";
  * mechanical rather than organic — the exact failure mode
  * docs/18_ENGINEERING_CONTRACTS.md's Shader Contracts already warns against.
  *
- * `uStorytellingProgress`/`uPhysicsIntensity` are typed and present but have
- * no publisher yet — Milestone 6 and Milestone 3 respectively. Camera
- * position is deliberately not published as a separate uniform: Three's
- * built-in `cameraPosition` GLSL variable already covers the common
- * view-dependent case (fresnel, rim lighting) without a second, redundant
- * source of the same data — publishing one anyway would itself violate
- * "duplicate uniform sources are forbidden."
+ * Camera position is deliberately not published as a separate uniform:
+ * Three's built-in `cameraPosition` GLSL variable already covers the
+ * common view-dependent case (fresnel, rim lighting) without a second,
+ * redundant source of the same data — publishing one anyway would itself
+ * violate "duplicate uniform sources are forbidden."
  */
 export const sharedUniforms = {
   uResolution: { value: new THREE.Vector2(1, 1) },
@@ -58,6 +56,19 @@ export function publishLightingIntensity(intensity: number): void {
 
 export function publishInteractionState(isInteracting: boolean): void {
   sharedUniforms.uIsInteracting.value = isInteracting ? 1 : 0;
+}
+
+/**
+ * Sprint 3.8 fix — `uPhysicsIntensity` was typed since Sprint 2.4 ("Milestone
+ * 3") with no publisher at all, and Milestone 3's own physics work (Sprint
+ * 3.4) shipped without wiring it. `useLiquidPhysics.ts` is the single call
+ * site: the same `qualityPolicy.coffeePhysics.intensity` scale that hook
+ * already uses to grade its own tilt/ripple amplitude per tier — a shader
+ * that opts into this uniform sees the identical 0-1 scale, never a second,
+ * independently-tuned copy of "how much physics is currently allowed."
+ */
+export function publishPhysicsIntensity(intensity: number): void {
+  sharedUniforms.uPhysicsIntensity.value = intensity;
 }
 
 /**

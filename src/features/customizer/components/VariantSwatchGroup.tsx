@@ -3,6 +3,8 @@
 import { Check } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import type { CustomizerCategory, CustomizerSelection } from "@/stores/customizer-store";
+import { useCustomizerStore } from "@/stores/customizer-store";
 
 export interface SwatchOption {
   id: string;
@@ -14,29 +16,61 @@ export interface SwatchOption {
 interface VariantSwatchGroupProps {
   legend: string;
   options: readonly SwatchOption[];
-  selectedId: string;
-  /** The transient hover/focus preview for *this* category only — `null` when nothing in this group is being previewed. */
-  previewId: string | null;
-  onCommit: (id: string, via: "click" | "keyboard") => void;
-  onPreview: (id: string | null) => void;
+  category: CustomizerCategory;
 }
 
 /**
  * One category's swatch row — Color/Size/Sleeve/Lid/Logo/Material all
  * render through this, whether or not the variant has a real color (a
  * neutral pill for size/logo/material, a color-filled circle otherwise).
- * Real `<button>`s throughout, `aria-pressed` for the committed selection
- * (the same convention `CategoryFilter.tsx` established in Sprint 3.1),
- * `min-h-11 min-w-11` (44px) for every touch target regardless of visual
- * size, per this sprint's "touch targets verified" requirement.
+ * Real `<button>`s throughout, `role="radio"`/`aria-checked` for the
+ * committed selection — a single-select group, not independently
+ * toggleable buttons (`CategoryFilter.tsx` originally used `aria-pressed`
+ * for its own, structurally identical single-select group; harmonized
+ * onto this same `radiogroup`/`radio`/`aria-checked` pattern in Sprint
+ * 3.8). `min-h-11 min-w-11` (44px) for every touch target regardless of
+ * visual size, per this sprint's "touch targets verified" requirement.
  *
  * Preview-before-commit: hover or keyboard focus shows what the cup would
- * look like (`onPreview`) without touching undo/redo history; a real
- * click/Enter/Space commits it (`onCommit`). Distinguishing the two commit
+ * look like (`setPreview`) without touching undo/redo history; a real
+ * click/Enter/Space commits it (`select`). Distinguishing the two commit
  * paths (`event.detail === 0` is `0` only for a keyboard-triggered click,
  * never a real mouse click) feeds `variant:selected`'s `via` field.
+ *
+ * Sprint 3.8 perf fix: this component reads its own `category`'s
+ * `selection`/`preview` slice directly from `customizer-store` (a
+ * primitive `string | null` each) instead of receiving `selectedId`/
+ * `previewId`/`onCommit`/`onPreview` as props computed by a shared parent.
+ * `CustomizerPanel` previously subscribed to the whole `preview` object
+ * and re-rendered — recreating all 6 swatch groups' props — on every
+ * single hover anywhere in the panel, not just the hovered group's own;
+ * each group now has its own independent subscription, so hovering one
+ * category's swatch only ever re-renders that one group.
  */
-export function VariantSwatchGroup({ legend, options, selectedId, previewId, onCommit, onPreview }: VariantSwatchGroupProps) {
+export function VariantSwatchGroup({ legend, options, category }: VariantSwatchGroupProps) {
+  const selectedId = useCustomizerStore((state) => state.selection[category]) as string;
+  const previewValue = useCustomizerStore((state) => state.preview?.[category]);
+  const previewId = typeof previewValue === "string" ? previewValue : null;
+  const select = useCustomizerStore((state) => state.select);
+  const setPreview = useCustomizerStore((state) => state.setPreview);
+
+  const onCommit = (id: string, via: "click" | "keyboard") => {
+    // See `CustomizerPanel`'s own prior comment on this cast, carried over
+    // verbatim: `VariantSwatchGroup` is intentionally generic over plain
+    // `string` ids, so this reflects a real, narrower guarantee this
+    // component upholds (every option array it's given already only
+    // contains its own category's real id values), not an escape hatch.
+    select(category, id as CustomizerSelection[CustomizerCategory], via);
+  };
+
+  const onPreview = (id: string | null) => {
+    // `setPreview` replaces the whole `preview` object, so a fresh read
+    // (not the `previewValue` this render already has) avoids clobbering
+    // a different category's own in-flight preview with a stale snapshot.
+    const currentPreview = useCustomizerStore.getState().preview;
+    setPreview(id === null ? null : { ...currentPreview, [category]: id });
+  };
+
   return (
     <fieldset className="flex flex-col gap-2">
       <legend className="text-foreground text-sm font-medium">{legend}</legend>
@@ -89,7 +123,7 @@ export function VariantSwatchGroup({ legend, options, selectedId, previewId, onC
               ) : (
                 isSelected && <Check className="text-brand-accent-600 dark:text-brand-accent-400 size-3.5" aria-hidden="true" />
               )}
-              <span className="max-w-16 truncate">{option.label}</span>
+              <span className="max-w-24 truncate text-center">{option.label}</span>
             </button>
           );
         })}

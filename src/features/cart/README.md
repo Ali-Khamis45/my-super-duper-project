@@ -51,6 +51,12 @@ Building one (`buildRecipeSnapshot`) and restoring one (`customizer-store`'s `lo
 - Checkout collects name/email only — no payment fields. This project has no backend or payment gateway; building fake card-number inputs would be actively misleading rather than a real "premium" flow, the same honesty this project's other simulated-but-transparent systems (the AI Concierge's rule engine, Sprint 3.4's "not a physics engine") already establish.
 - Favorites/`lastOrder` are `localStorage`-persisted alongside cart items for simplicity, not literally erased at tab-close — "session only" in the brief is read here as "no server account," matching `stores/cart-store.ts`'s own doc comment.
 
+## Update (Sprint 3.8, Final Polish)
+
+A dedicated audit found and fixed three real motion-token violations: `OrderConfirmation`'s checkmark reveal used a hand-rolled overshoot cubic-bezier duplicating exactly what `engine/motion/springs.ts`'s `bouncy` preset ("Playful overshoot — pop/press feedback") already exists for; `AddToCartButton`'s fly-to-cart animation and `CartIcon`'s badge-pop each had their own hardcoded duration/easing instead of the shared `durations`/`easings`/`springs` tokens. All three now draw from the project's one motion-token source. Also fixed: a missing `useMemo` on `MiniCart`'s total (matching `PriceBreakdown`'s own stated requirement for the identical computation), a missing `aria-pressed` on the favorites-section remove button (matching `CartItemRow`'s own favorite toggle), and the empty-cart/empty-checkout/no-recent-order states — previously a small, sparse dashed box in a mostly-empty page — given real visual presence (larger icon, two-line message, subtle background tint), verified by screenshot.
+
+Found, not fixed this sprint: `reorderItem` (`cart-store.ts`) is a real, tested store action with zero UI callers — no up/down control exists anywhere in `CartItemRow`/`CartExperience`/`MiniCart`. Flagged in [RC1_RELEASE_CANDIDATE_REPORT.md](../../../docs/RC1_RELEASE_CANDIDATE_REPORT.md)'s Technical Debt section rather than either wired up under time pressure or removed without checking whether cart-line reordering is still a wanted feature.
+
 ## Future extension
 
 - **A real backend/account system**: `RecipeSnapshot`/`CompletedOrder` are already shaped to be the contract a future order-history/account feature would consume directly — "linking orders to the account for future use," the brief's own words, is a real, enabled seam, not a promise requiring a reshape later.

@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { ShoppingBag } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -60,9 +61,14 @@ export function CheckoutExperience() {
   if (items.length === 0) {
     return (
       <div id="main-content" className="mx-auto max-w-xl px-4 pt-24 pb-16 text-center sm:px-6">
-        <h1 className="font-display mb-2 text-2xl">Nothing to check out</h1>
-        <p className="text-muted-foreground mb-4 text-sm">Your cart is empty.</p>
-        <Button nativeButton={false} render={<Link href="/menu" />}>Browse the menu</Button>
+        <div className="text-muted-foreground bg-muted/30 flex flex-col items-center gap-4 rounded-xl border border-dashed py-24">
+          <ShoppingBag className="size-14 opacity-30" aria-hidden="true" />
+          <div className="flex flex-col gap-1">
+            <h1 className="text-foreground font-display text-lg">Nothing to check out</h1>
+            <p className="text-sm">Your cart is empty — browse the menu to get started.</p>
+          </div>
+          <Button nativeButton={false} render={<Link href="/menu" />}>Browse the menu</Button>
+        </div>
       </div>
     );
   }

@@ -9,7 +9,7 @@ import type { CupPartProps } from "../registry/types";
 
 const SPRINKLE_COUNT = 36;
 const SCATTER_RADIUS = 0.42;
-/** A playful, varied palette — the one ingredient this sprint where a single flat color would read as visibly wrong (real sprinkles are never one color). */
+/** A playful, varied palette — the one ingredient this sprint where a single flat color would read as visibly wrong (real sprinkles are never one color). A deliberate, reviewed exception to the OKLCH-token contract: no 5-color decorative ramp exists in the 3-ramp token system to derive this from (Sprint 3.8 audit). */
 const SPRINKLE_COLORS = ["#e85d75", "#f2b134", "#4f9d69", "#5b7fd6", "#f5f5f0"];
 
 /** A tiny, deterministic PRNG (no `Math.random()` during render — this project's `react-hooks/purity` scoping already exempts `features/**` for R3F's imperative model, but a deterministic scatter is honestly the right choice regardless: the pattern should look identical every time this ingredient is added, not reshuffle on every re-render). */

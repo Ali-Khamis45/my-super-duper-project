@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { springs } from "@/engine/motion/springs";
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 import { selectCartItemCount, useCartStore } from "@/stores/cart-store";
 
@@ -58,7 +59,11 @@ export function CartIcon() {
                 key={reducedMotion ? "static" : justIncreased ? "bump" : "steady"}
                 initial={!reducedMotion && justIncreased ? { scale: 0.6 } : false}
                 animate={{ scale: 1 }}
-                transition={{ duration: 0.25, ease: "easeOut" }}
+                // Sprint 3.8 fix: was a hardcoded duration+bare easing
+                // string — `springs.bouncy` ("Playful overshoot — pop/press
+                // feedback") is the exact preset this badge-pop moment
+                // already fits, not a new tuning.
+                transition={springs.bouncy}
                 className="bg-brand-accent-500 absolute -top-0.5 -right-0.5 flex size-4 items-center justify-center rounded-full text-[10px] font-medium text-white"
                 aria-hidden="true"
               >

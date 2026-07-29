@@ -30,6 +30,8 @@ Placement state (`ingredients: IngredientPlacement[]`) and the base-drink contex
 6. `RecipeSummary` reads `baseDrinkId`/`selection.ingredients` directly from the store and renders drink name, category, per-ingredient price (`priceModifier * quantity`), and the total (`drink.price + ingredientsTotal`).
 7. `IngredientAnnouncer` subscribes to `ingredient:added`/`-removed`/`-updated`/`-reordered` and (when the id resolves to a composer preset) `preset:applied`, writing a short message into an `aria-live="polite"` region — the brief's "Screen-reader announcements" requirement, driven by events the store already emits rather than a second diff-the-state mechanism.
 
+**Sprint 3.8 (Final Polish)**: two real fixes from a dedicated audit. `LayerStack`'s add/remove/reorder previously snapped instantly — now animates via `layout`/`AnimatePresence`, matching `features/menu/`'s `DrinkCard.tsx` handling of the identical "list reflow" shape. `RecipeSummary`'s derived total is now `useMemo`'d, matching `features/cart/`'s `PriceBreakdown.tsx` (which shares this feature's own `calculateIngredientsTotal.ts`) — the same "memoize derived totals" requirement, previously only applied on one side of that shared function's two call sites.
+
 ## Responsibilities
 
 - **This feature owns**: the ingredient catalog, compatibility rules, presets, the placement-to-`ResolvedIngredientLayer[]` mapping, its own panel UI and screen-reader announcements.

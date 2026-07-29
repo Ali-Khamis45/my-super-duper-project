@@ -7,6 +7,7 @@ import { createLiquidPhysicsState, stepLiquidPhysics, triggerRipple } from "@/en
 import type { LiquidPhysicsState } from "@/engine/physics";
 import { performanceManager } from "@/engine/performance";
 import { resolveQualityPolicy } from "@/engine/performance/qualityPolicy";
+import { publishPhysicsIntensity } from "@/engine/shaders/common";
 
 import type { CupInteractionState } from "./useCupInteractionState";
 
@@ -44,6 +45,10 @@ export function useLiquidPhysics({ velocityRef, interactionState, reducedMotion 
 
   const tier = performanceManager.tier.useValue();
   const policy = resolveQualityPolicy(tier).coffeePhysics;
+
+  useEffect(() => {
+    publishPhysicsIntensity(policy.intensity);
+  }, [policy.intensity]);
 
   // Ripples are triggered on real interaction transitions — drag starting
   // (a disturbance) and drag/inertia-coast ending (the "sloshing to a

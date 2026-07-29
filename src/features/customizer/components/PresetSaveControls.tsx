@@ -49,7 +49,7 @@ export function PresetSaveControls() {
               <button
                 type="button"
                 onClick={() => loadPreset(preset.id)}
-                className="hover:text-brand-accent-600 dark:hover:text-brand-accent-400 min-h-11 flex-1 truncate text-left"
+                className="hover:text-brand-accent-600 dark:hover:text-brand-accent-400 focus-visible:ring-ring min-h-11 flex-1 truncate rounded text-left focus-visible:ring-2 focus-visible:outline-none"
               >
                 {preset.name}
               </button>

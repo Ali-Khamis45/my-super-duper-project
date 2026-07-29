@@ -1,12 +1,13 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, ShoppingBag } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { springs } from "@/engine/motion/springs";
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 import { useCartStore } from "@/stores/cart-store";
 
@@ -31,9 +32,14 @@ export function OrderConfirmation() {
   if (!lastOrder) {
     return (
       <div id="main-content" className="mx-auto max-w-xl px-4 pt-24 pb-16 text-center sm:px-6">
-        <h1 className="font-display mb-2 text-2xl">No recent order</h1>
-        <p className="text-muted-foreground mb-4 text-sm">Nothing to confirm yet.</p>
-        <Button nativeButton={false} render={<Link href="/menu" />}>Browse the menu</Button>
+        <div className="text-muted-foreground bg-muted/30 flex flex-col items-center gap-4 rounded-xl border border-dashed py-24">
+          <ShoppingBag className="size-14 opacity-30" aria-hidden="true" />
+          <div className="flex flex-col gap-1">
+            <h1 className="text-foreground font-display text-lg">No recent order</h1>
+            <p className="text-sm">Nothing to confirm yet.</p>
+          </div>
+          <Button nativeButton={false} render={<Link href="/menu" />}>Browse the menu</Button>
+        </div>
       </div>
     );
   }
@@ -45,7 +51,12 @@ export function OrderConfirmation() {
       <motion.div
         initial={reducedMotion ? false : { scale: 0.6, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        transition={{ duration: 0.5, ease: [0.34, 1.56, 0.64, 1] }}
+        // Sprint 3.8 fix: was a hand-rolled overshoot cubic-bezier,
+        // duplicating exactly what `springs.bouncy` ("Playful overshoot —
+        // pop/press feedback") already exists for — the checkout's
+        // signature "premium" moment now draws from the same token every
+        // other overshoot-feeling interaction in the app does.
+        transition={springs.bouncy}
         className="mb-4 flex justify-center"
       >
         <CheckCircle2 className="text-brand-accent-500 size-16" aria-hidden="true" />

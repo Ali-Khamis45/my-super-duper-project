@@ -3,6 +3,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { ShoppingBag } from "lucide-react";
 import Link from "next/link";
+import { useMemo } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -27,7 +28,9 @@ interface MiniCartProps {
  */
 export function MiniCart({ onNavigate }: MiniCartProps) {
   const items = useCartStore((state) => state.items);
-  const total = selectCartTotal(items);
+  // Sprint 3.8 fix: matches `PriceBreakdown.tsx`'s own memoization of the
+  // identical `selectCartTotal(items)` computation.
+  const total = useMemo(() => selectCartTotal(items), [items]);
   const reducedMotion = usePrefersReducedMotion();
 
   return (

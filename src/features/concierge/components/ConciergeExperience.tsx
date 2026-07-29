@@ -1,7 +1,10 @@
 "use client";
 
+import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useRef } from "react";
 
+import { fadeIn, fadeUp } from "@/engine/motion/presets";
+import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 import { useConciergeStore } from "@/stores/concierge-store";
 
 import { useRecommendation } from "../hooks/useRecommendation";
@@ -23,6 +26,7 @@ export function ConciergeExperience() {
   const lastRecommendation = useConciergeStore((state) => state.lastRecommendation);
   const { isPending } = useRecommendation();
   const resultRef = useRef<HTMLDivElement>(null);
+  const reducedMotion = usePrefersReducedMotion();
 
   useEffect(() => {
     if (lastRecommendation) resultRef.current?.focus();
@@ -45,14 +49,32 @@ export function ConciergeExperience() {
 
           <PreferenceQuestionnaire />
 
-          {isPending && <RecommendationPanelSkeleton />}
-
-          {!isPending && lastRecommendation && (
-            <div ref={resultRef} tabIndex={-1} className="flex flex-col gap-4 outline-none">
-              <RecommendationPanel recommendation={lastRecommendation} />
-              <DrinkComparison recommendation={lastRecommendation} />
-            </div>
-          )}
+          {/* Sprint 3.8 fix: the skeleton -> result swap — this panel's
+              single biggest "moment," the payoff `useRecommendation`'s own
+              deliberate thinking delay is building toward — had zero
+              entrance motion, unlike every sibling feature's equivalent
+              state swap (`CartExperience`'s empty -> items, matched here). */}
+          <AnimatePresence mode="wait">
+            {isPending && (
+              <motion.div key="skeleton" initial={reducedMotion ? false : "hidden"} animate={reducedMotion ? undefined : "visible"} variants={fadeIn}>
+                <RecommendationPanelSkeleton />
+              </motion.div>
+            )}
+            {!isPending && lastRecommendation && (
+              <motion.div
+                key="result"
+                ref={resultRef}
+                tabIndex={-1}
+                initial={reducedMotion ? false : "hidden"}
+                animate={reducedMotion ? undefined : "visible"}
+                variants={fadeUp}
+                className="flex flex-col gap-4 outline-none"
+              >
+                <RecommendationPanel recommendation={lastRecommendation} />
+                <DrinkComparison recommendation={lastRecommendation} />
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </aside>
     </div>

@@ -8,8 +8,10 @@ export {
   createPerInstanceUniforms,
   publishInteractionState,
   publishLightingIntensity,
+  publishPhysicsIntensity,
   publishQualityTier,
   publishResolution,
+  publishStorytellingProgress,
   publishTheme,
   sharedUniforms,
 } from "./uniforms";
