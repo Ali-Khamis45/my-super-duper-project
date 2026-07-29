@@ -59,7 +59,9 @@ type AppEvent =
   | { name: "physics:started" }
   | { name: "physics:settled" }
   | { name: "liquid:disturbed" }
-  | { name: "liquid:stabilized" };
+  | { name: "liquid:stabilized" }
+  | { name: "ai:recommendation-applied"; recommendationId: string }
+  | { name: "taste-profile:updated"; field: string };
 ```
 
 ## Catalog
@@ -97,7 +99,7 @@ type AppEvent =
 | `scene:ready` | `{ route }` | Scene composition root, after its first successful frame render | Debug overlay, Analytics (time-to-interactive proxy) | Fires exactly once per route mount | N/A | — |
 | `webgl:context-lost` | `{}` | **Implemented, Sprint 2.1** — `features/hero-cup/hooks/useWebGLContextRecovery.ts`, a dedicated hook distinct from `useWebGLSupport` (which only probes availability once, at load) | Scene composition root (swap to `CupStaticFallback`), Analytics | Fires on the browser's native `webglcontextlost` event | Listener must call `event.preventDefault()` before this emits, or restoration becomes impossible | — |
 | `webgl:context-restored` | `{}` | Same listener | Scene composition root (re-mount the Canvas) | Fires on the browser's native `webglcontextrestored` event, only if `context-lost`'s handler allowed restoration | N/A | — |
-| `ai:recommendation-ready` | `{ recommendationId }` | AI Barista feature (Milestone 7), after its data-fetch resolves | Camera Manager (switch to `ai` preset reveal), Customizer store (apply recommended colorway) | Fires once per completed recommendation flow | Consumer failure to apply the recommendation is a feature bug | — |
+| `ai:recommendation-ready` | `{ recommendationId }` | **Implemented, Sprint 3.5** — `stores/concierge-store.ts`'s `setRecommendation()`, after `features/concierge/lib/recommendationEngine.ts`'s scoring pass completes | `RecommendationAnnouncer` reads the store directly rather than this event (see that component's own doc comment on why); `ConciergeCanvas` reads `lastRecommendation` reactively for the same reason. This event exists for consumers that only need to *know a recommendation happened*, not read its contents — Analytics (future) | Fires once per completed recommendation flow | Consumer failure to apply the recommendation is a feature bug | — |
 | `checkout:started` | `{ cartTotal }` | Commerce feature (Milestone 8) | Analytics | Fires once per checkout flow entry | N/A | — |
 | `checkout:completed` | `{ orderId }` | Commerce feature | Confetti/celebration effect (DOM-layer, per the Effect Manager scope boundary in [22_MANAGER_INTERFACES.md](22_MANAGER_INTERFACES.md)), Analytics | Fires once per completed order | N/A | — |
 | `customizer:opened` | `{}` | **Implemented, Sprint 3.2** — `features/customizer/components/CustomizerExperience.tsx`, on mount | Analytics (future) | Fires exactly once per `/customize` mount | N/A | — |
@@ -114,6 +116,8 @@ type AppEvent =
 | `liquid:stabilized` | `{}` | **Implemented, Sprint 3.4** — same hook, on the transition back to settled | Analytics (future) | Always follows a `liquid:disturbed` for the same disturbance, never fires on its own | N/A | — |
 | `physics:started` | `{}` | **Implemented, Sprint 3.4** — same hook, on the whole simulation (tilt + ripples + foam lag + ice lag — not ice's permanent idle drift, which never settles by design) transitioning from settled to unsettled | Analytics (future) | The coarse, whole-system counterpart to `liquid:disturbed` — same co-emission-pattern reasoning as `recipe:changed` above | N/A | Fires slightly after (or with) `liquid:disturbed`, never before it |
 | `physics:settled` | `{}` | **Implemented, Sprint 3.4** — same hook, on the transition back to fully settled | Analytics (future) | Always follows a `physics:started`; fires at or after the matching `liquid:stabilized`, never before | N/A | — |
+| `ai:recommendation-applied` | `{ recommendationId }` | **Implemented, Sprint 3.5** — `stores/concierge-store.ts`'s `applyRecommendationToCustomizer()`, after it calls `customizer-store`'s `setBaseDrink`/`addIngredient` and before the caller navigates to `/customize` | Analytics (future) | Fires once per "Apply to Customizer" click (from either the top pick or an alternative) | N/A | Distinct from `ai:recommendation-ready` — that means "a recommendation exists," this means "the user actually acted on one" |
+| `taste-profile:updated` | `{ field }` | **Implemented, Sprint 3.5** — `stores/concierge-store.ts`'s `setTasteProfileField()`, on every questionnaire answer change | Analytics (future) | Fires once per field commit, including re-selecting the same value (unlike `variant:selected`, which no-ops on an unchanged value — a taste-profile field has no "current selection" concept worth diffing against here) | N/A | `field` is the `TasteProfile` key as a string (e.g. `"sweetness"`), not the new value — mirrors `variant:selected`'s `category` field shape |
 
 ## What deliberately has no event
 

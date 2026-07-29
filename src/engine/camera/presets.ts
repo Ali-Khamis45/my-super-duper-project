@@ -23,6 +23,16 @@ const registry = new Map<CameraPresetName, CameraPreset>([
     // change.") shouldn't be hidden at the default angle.
     { position: [0, 1.9, 4.4], fov: 30, lookAt: [0, 0.85, 0] },
   ],
+  [
+    "ai",
+    // Sprint 3.5 — the first real second preset `CameraRig`'s
+    // preset-to-preset smooth interpolation (built Sprint 2.1, never
+    // exercised live until now) actually switches to. A closer, slightly
+    // lower "presented to you" framing versus `hero`'s wider establishing
+    // shot — the Architecture Freeze's "3D reveal moment" for a completed
+    // recommendation (docs/15_ARCHITECTURE_FREEZE.md, scenario 5).
+    { position: [0, 1.35, 3.1], fov: 26, lookAt: [0, 0.95, 0] },
+  ],
 ]);
 
 /** Sanctioned extension path (docs/17_ZERO_REWRITE_POLICY.md) — a new preset is one call, zero changes elsewhere. */

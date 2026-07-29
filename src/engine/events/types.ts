@@ -60,6 +60,8 @@ export type AppEvent =
   | { name: "physics:started" }
   | { name: "physics:settled" }
   | { name: "liquid:disturbed" }
-  | { name: "liquid:stabilized" };
+  | { name: "liquid:stabilized" }
+  | { name: "ai:recommendation-applied"; recommendationId: string }
+  | { name: "taste-profile:updated"; field: string };
 
 export type AppEventName = AppEvent["name"];

@@ -3,6 +3,7 @@
 import { useEffect, useMemo } from "react";
 
 import { CameraRig } from "@/engine/camera/CameraRig";
+import type { CameraPresetName } from "@/engine/camera/presets";
 import { DevPanelStatsCollector } from "@/engine/devpanel/DevPanel";
 import { EffectsStack } from "@/engine/effects/EffectsStack";
 import { resolveEnvironmentPreset } from "@/engine/environment/presets";
@@ -32,9 +33,11 @@ interface CupSceneProps {
   ingredientLayers?: ResolvedIngredientLayer[];
   /** Only affects the `SceneCompositionRoot` record, not rendering — defaults to `"/"` (the Hero route), matching prior behavior exactly when omitted. */
   route?: string;
+  /** Sprint 3.5 — `features/concierge/` is this prop's first real caller (the "ai" preset, a real second-preset `CameraRig` switches to live). Defaults to `"hero"`, matching every prior route's unchanged behavior. */
+  cameraPreset?: CameraPresetName;
 }
 
-export function CupScene({ partOverrides, cupScale, ingredientLayers, route = "/" }: CupSceneProps) {
+export function CupScene({ partOverrides, cupScale, ingredientLayers, route = "/", cameraPreset = "hero" }: CupSceneProps) {
   const theme = useActiveTheme();
   const { environment, lighting: lightingPresetName } = themeToPresetMap[theme];
   const lightingPreset = resolveLightingPreset(lightingPresetName);
@@ -69,7 +72,7 @@ export function CupScene({ partOverrides, cupScale, ingredientLayers, route = "/
   // future route's composition root satisfies the same shape.
   const sceneConfig: SceneCompositionRoot = {
     route,
-    camera: "hero",
+    camera: cameraPreset,
     environment,
     lighting: lightingPresetName,
     effects:

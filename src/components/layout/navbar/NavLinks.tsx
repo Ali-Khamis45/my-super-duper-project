@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 export const navigationItems = [
   { label: "Menu", href: "/menu" },
   { label: "Customize", href: "/customize" },
+  { label: "Concierge", href: "/concierge" },
   { label: "Our Story", href: "/story" },
 ] as const;
 
