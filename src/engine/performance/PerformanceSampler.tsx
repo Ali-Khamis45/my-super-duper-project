@@ -56,6 +56,7 @@ export function PerformanceSampler() {
         drawCalls: gl.info.render.calls,
         triangles: gl.info.render.triangles,
         geometries: gl.info.memory.geometries,
+        gpuTextures: gl.info.memory.textures,
       });
       performanceManager.sampleFrame(fps);
       evaluateAdaptiveQuality(fps);

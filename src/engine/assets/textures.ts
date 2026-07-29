@@ -133,3 +133,8 @@ export function disposeTextureAsset(key: string): void {
 export function getTextureState(key: string) {
   return textureCache.get(key);
 }
+
+/** Engine Health Dashboard reading (Sprint 2.6) — this cache's live size/hit-rate, not duplicated bookkeeping. */
+export function getTextureCacheStats(): { size: number; hits: number; misses: number } {
+  return { size: textureCache.size, hits: textureCache.hits, misses: textureCache.misses };
+}

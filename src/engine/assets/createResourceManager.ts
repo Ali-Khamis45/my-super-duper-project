@@ -52,6 +52,12 @@ export interface ResourceManager<T> {
   dispose(key: string, disposer?: (value: T) => void): void;
   /** Disposes every entry and clears the registry — e.g. leaving a route that owns these resources. */
   clear(disposer?: (value: T) => void): void;
+  /** Current entry count — the Engine Health Dashboard's "active resources" reading (Sprint 2.6). Additive, same accessor shape as `createSyncCache`'s `hits`/`misses`/size for consistency across both cache-like factories. */
+  readonly size: number;
+  /** A `load()` that returned an already-ready value or joined an in-flight promise, without starting a new fetch. */
+  readonly hits: number;
+  /** A `load()` that started a genuinely new fetch. */
+  readonly misses: number;
 }
 
 export function createResourceManager<T>(options: ResourceManagerOptions<T> = {}): ResourceManager<T> {
@@ -59,6 +65,8 @@ export function createResourceManager<T>(options: ResourceManagerOptions<T> = {}
   const entries = new Map<string, ResourceEntry<T>>();
   const inFlight = new Map<string, Promise<T>>();
   const accessOrder: string[] = []; // oldest first; touched on every get/load
+  let hits = 0;
+  let misses = 0;
 
   function touch(key: string) {
     const index = accessOrder.indexOf(key);
@@ -103,12 +111,17 @@ export function createResourceManager<T>(options: ResourceManagerOptions<T> = {}
   function load(key: string, loader: () => Promise<T>): Promise<T> {
     const existing = entries.get(key);
     if (existing?.state === "ready" && existing.value !== null) {
+      hits += 1;
       touch(key);
       return Promise.resolve(existing.value);
     }
     const pending = inFlight.get(key);
-    if (pending) return pending;
+    if (pending) {
+      hits += 1;
+      return pending;
+    }
 
+    misses += 1;
     const promise = runLoad(key, loader);
     inFlight.set(key, promise);
     return promise;
@@ -158,5 +171,22 @@ export function createResourceManager<T>(options: ResourceManagerOptions<T> = {}
     }
   }
 
-  return { load, retry, preload, replace, get, dispose, clear };
+  return {
+    load,
+    retry,
+    preload,
+    replace,
+    get,
+    dispose,
+    clear,
+    get size() {
+      return entries.size;
+    },
+    get hits() {
+      return hits;
+    },
+    get misses() {
+      return misses;
+    },
+  };
 }

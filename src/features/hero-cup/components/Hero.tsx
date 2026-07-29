@@ -1,4 +1,5 @@
 import { DevPanel } from "@/engine/devpanel/DevPanel";
+import { EngineHealthPanel } from "@/engine/devpanel/EngineHealthPanel";
 
 import { CupCanvasLoader } from "./CupCanvasLoader";
 import { HeroCopy } from "./HeroCopy";
@@ -15,6 +16,7 @@ export function Hero() {
       </div>
       <HeroCopy />
       <DevPanel />
+      <EngineHealthPanel />
     </section>
   );
 }

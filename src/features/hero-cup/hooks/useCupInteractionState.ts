@@ -2,10 +2,6 @@ import type { ThreeEvent } from "@react-three/fiber";
 import { useFrame, useThree } from "@react-three/fiber";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-// Imported for its module-scope EventBus subscription side effect — see
-// the file itself. This hook is the actual emitter of `cup:rotated`.
-import "@/engine/analytics/eventBridge";
-
 import { appEvents } from "@/engine/events";
 import { classifyPointerKind } from "@/engine/interaction/types";
 

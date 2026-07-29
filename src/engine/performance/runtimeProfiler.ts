@@ -25,6 +25,8 @@ export interface PerformanceSnapshot {
   readonly drawCalls: number;
   readonly triangles: number;
   readonly geometries: number;
+  /** `gl.info.memory.textures` — Three's own live GPU texture count. A count, not bytes: no reliable cross-browser API measures actual GPU memory, the same honest limitation documented since Sprint 2.2's cache caps. Still a real, renderer-level `gl.info` reading, so it belongs here, not in the Debug Overlay's aggregation. */
+  readonly gpuTextures: number;
 }
 
 export interface RawFrameStats {
@@ -32,6 +34,7 @@ export interface RawFrameStats {
   drawCalls: number;
   triangles: number;
   geometries: number;
+  gpuTextures: number;
 }
 
 export function createPerformanceSnapshot(input: RawFrameStats): PerformanceSnapshot {
@@ -42,6 +45,7 @@ export function createPerformanceSnapshot(input: RawFrameStats): PerformanceSnap
     drawCalls: input.drawCalls,
     triangles: input.triangles,
     geometries: input.geometries,
+    gpuTextures: input.gpuTextures,
   });
 }
 

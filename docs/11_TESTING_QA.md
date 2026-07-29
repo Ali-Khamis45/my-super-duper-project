@@ -1,13 +1,11 @@
 # 11 — Testing & QA
 
-## Target stack (adopted once there's interactive logic worth testing)
+## Current stack
 
-- **Vitest + React Testing Library** for unit/component tests — hooks (`useCupInteractionState`, `usePrefersReducedMotion`), pure logic (registries, token derivation), and component behavior that doesn't require a real WebGL context.
-- **Playwright** for e2e and visual regression — full page flows once there are multiple real routes, and visual snapshots of the `/design-system` reference page to catch unintended token drift.
+- **Vitest + React Testing Library** for unit/component tests — installed since Sprint 2.1, real from day one (not scaffolding-ahead-of-need). 150 tests across 26 files as of Sprint 2.6, covering every manager built since (registries, bridge stores, EventBus, resource/material/shader caches, adaptive quality hysteresis, engine health aggregation, etc.) plus `useCupInteractionState`/`usePrefersReducedMotion`.
+- **Playwright** (`@playwright/test`) for e2e, cross-browser, and visual regression — installed Sprint 2.6, the point [16_ENGINEERING_SPRINTS.md](16_ENGINEERING_SPRINTS.md) flagged as "decided at sprint start based on what shipped": this sprint's own brief named Cross-browser Validation and Visual Regression Baseline as concrete deliverables, which need a real multi-engine browser runner, not just Vitest+jsdom. Three projects — Chromium, Firefox, WebKit (Playwright's own bundled engines; no macOS exists on this dev machine to run real Safari, and a system-installed Edge was spot-checked separately since Playwright drives it identically to Chromium). `e2e/stabilization.spec.ts` and `e2e/long-running.spec.ts`; screenshot baselines committed under `e2e/*.spec.ts-snapshots/`. See [reviews/sprint-2.6-review.md](reviews/sprint-2.6-review.md) for what's covered and what's deliberately not (real 30-minute soaks, repeated camera transitions/asset disposal — no feature surface exists for those two yet).
 
-Neither is installed yet. Installing a test framework with zero tests to run is itself dead scaffolding — against the same principle that keeps `audio/`/`commerce/` folders out of the repo this milestone (see [01_ARCHITECTURE.md](01_ARCHITECTURE.md)). The stack is decided now so there's no ambiguity when the first real test is warranted, likely Milestone 3–4 once `useCupInteractionState` and customizer logic exist as pure, testable state.
-
-## Milestone 1 QA gate
+## Milestone 1 QA gate (superseded by the above for anything built since, kept here as the historical record of Milestone 1's foundation-only bar)
 
 Foundation-only milestones are verified through:
 

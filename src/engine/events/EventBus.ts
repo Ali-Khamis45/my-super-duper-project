@@ -21,13 +21,17 @@ export interface EventBus<TEvent extends { name: string }> {
     name: TName,
     listener: Listener<Extract<TEvent, { name: TName }>>,
   ): () => void;
+  /** Total `emit()` calls since this bus was created — a monotonic counter, not a rate. The Engine Health Dashboard's "event throughput" (Sprint 2.6) derives events/sec from the delta between two samples, the same pattern `PerformanceSampler` already uses for FPS. Additive: existing consumers of the frozen `emit`/`on` contract are unaffected. */
+  getEmitCount(): number;
 }
 
 export function createEventBus<TEvent extends { name: string }>(): EventBus<TEvent> {
   const listenersByName = new Map<TEvent["name"], Set<Listener<TEvent>>>();
+  let emitCount = 0;
 
   return {
     emit(event) {
+      emitCount += 1;
       const listeners = listenersByName.get(event.name);
       if (!listeners) return;
       for (const listener of listeners) {
@@ -37,6 +41,9 @@ export function createEventBus<TEvent extends { name: string }>(): EventBus<TEve
           console.error(`[EventBus] listener for "${event.name}" threw:`, error);
         }
       }
+    },
+    getEmitCount() {
+      return emitCount;
     },
     on(name, listener) {
       const typedListener = listener as Listener<TEvent>;

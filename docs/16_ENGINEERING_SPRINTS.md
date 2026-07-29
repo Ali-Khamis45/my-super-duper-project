@@ -56,14 +56,19 @@ Every sprint ends clean: `npm run build`, `tsc --noEmit`, `eslint` pass, and the
 | Test independently | 30 new unit tests (146 total project-wide) covering the policy table, hysteresis edge cases, GPU budget crossing/reset, and memory pressure combination logic; real-browser CPU-throttle stress test (headless Chrome, 25x throttling via CDP `Emulation.setCPUThrottlingRate`) confirmed the live tier stepping `ultra → high → medium → low → minimal`, one step at a time, matching the fast-downgrade cadence, with exactly one recovery step observed in an 8s post-throttle window, matching the slow-upgrade cadence — see the review for the full trace |
 | Creative budget | Delivered: bloom intensity damps toward its tier-driven target (`THREE.MathUtils.damp`, the same technique `CameraRig.tsx` established in Sprint 2.1) instead of snapping on a tier change — a real, verified reduction in visible popping during adaptation, not a new visual flourish |
 
-## Sprint 2.6 — Integration & QA
+## Sprint 2.6 — Engine Stabilization & Production Readiness *(complete — see [reviews/sprint-2.6-review.md](reviews/sprint-2.6-review.md))*
 
 | | |
 |---|---|
-| Builds | Day/night lighting pass (populates the Sprint 2.1 Environment/Lighting registries with real presets — Milestone 2's other headline feature) · Integration testing pass · Visual regression tooling decision (evaluate whether this is the point [11_TESTING_QA.md](11_TESTING_QA.md)'s target Playwright stack finally gets installed — decided at sprint start based on what shipped, not pre-committed here) · Performance validation against Sprint 2.5's budgets · Full accessibility pass · Second Creative Director Review |
-| Depends on | Everything above |
-| Test independently | A CDR-style pass across every UI-theme × lighting-preset combination (4 minimum); the full engineering review (dead code, dependency direction, a11y, docs-vs-code accuracy) exactly as [reviews/milestone-1-stabilization-review.md](reviews/milestone-1-stabilization-review.md) did for Milestone 1 |
-| Creative budget | Day/night lighting is this sprint's (and arguably the milestone's) other headline visible feature, alongside whatever the CDR pass itself surfaces and fixes |
+| Builds | The actual brief received at sprint start superseded this row's original sketch (below) — implementation drives docs, per the RC0-era process change. Real work: Engine Integration Audit (found and fixed a real Analytics-activation coupling bug) · Playwright installed as this sprint's cross-browser/visual-regression tooling decision ([11_TESTING_QA.md](11_TESTING_QA.md)) — `e2e/stabilization.spec.ts` + `e2e/long-running.spec.ts`, 36 tests × 3 engines · Engine Health Dashboard (`engine/devpanel/engineHealth.ts` + `EngineHealthPanel.tsx`) · additive `size`/`hits`/`misses` instrumentation on `createResourceManager`/`createSyncCache`, `getEmitCount()` on `EventBus` · real-browser memory/GPU/context-recovery/accessibility verification · Creative Budget: a fade instead of an instant pop on WebGL context-loss recovery |
+| **Not built this sprint, despite this row's original sketch**: Day/night lighting content and a second Creative Director Review. The received brief was explicit ("No new rendering features. No new shaders. No new visual systems. Only stabilization.") and superseded the earlier speculative plan — the same category of honest deviation as Sprint 2.2's infrastructure-only scope. Both remain real, pending work for a future sprint. | |
+| Depends on | Sprints 2.1-2.5 having landed (an integration audit needs real integrated systems to audit) |
+| Test independently | Full serial Playwright run (`--workers=1`): 31 passed, 5 documented skips, zero failures; CPU-throttle stress test reproduces Sprint 2.5's exact tier sequence with no drift; `tsc`/`eslint`/`vitest`(150)/`build` all clean |
+| Creative budget | Delivered: the WebGL context-loss fallback now fades via the existing `fadeIn` preset instead of popping instantly — small, verified, explicitly polish-only per this sprint's "no new visual systems" constraint |
+
+## Open item: day/night lighting content
+
+Real day/night `EnvironmentPresetDefinition`/`LightingPresetDefinition` entries (the registries Sprint 2.1 built, still populated with placeholder presets only) and a second Creative Director Review were this row's original Sprint 2.6 sketch — not built there, since the brief actually received for that sprint was stabilization-only (see Sprint 2.6's row above). The user's Sprint 2.6 brief separately described the engine as "feature-complete for Phase 2" and gated next steps on Milestone 3 approval, which may mean this item is intentionally deferred past Milestone 2 rather than scheduled as a near-term "Sprint 2.7" — left here as an open item rather than presumed into a numbered future sprint, pending the user's actual next brief.
 
 ## Related
 

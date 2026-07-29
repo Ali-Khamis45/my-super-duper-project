@@ -2,11 +2,13 @@
 
 import type { RootState } from "@react-three/fiber";
 import { Canvas } from "@react-three/fiber";
+import { AnimatePresence, motion } from "framer-motion";
 import { Suspense, useCallback, useEffect } from "react";
 
 import { track } from "@/engine/analytics/tracking";
 import { initTexturePipeline } from "@/engine/assets/textures";
 import { resolveCameraPreset } from "@/engine/camera/presets";
+import { fadeIn } from "@/engine/motion/presets";
 import { performanceManager } from "@/engine/performance";
 import { resolveQualityPolicy } from "@/engine/performance/qualityPolicy";
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
@@ -68,11 +70,26 @@ export default function CupCanvas() {
 
   return (
     <div className="relative h-full w-full">
-      {contextLost && (
-        <div className="absolute inset-0 z-10">
-          <CupStaticFallback />
-        </div>
-      )}
+      {/* Sprint 2.6 Creative Budget: the fallback used to pop in/out
+          instantly on a real WebGL context loss/restore — jarring for a
+          failure mode that's already disorienting on its own. Reuses the
+          existing `fadeIn` preset (Milestone 1) rather than inventing a
+          second motion vocabulary; reduced motion snaps instead of
+          animating, this project's established "disable outright, don't
+          downgrade" policy, not a new carve-out for this one case. */}
+      <AnimatePresence>
+        {contextLost && (
+          <motion.div
+            className="absolute inset-0 z-10"
+            initial={reducedMotion ? false : "hidden"}
+            animate="visible"
+            exit={reducedMotion ? undefined : "hidden"}
+            variants={fadeIn}
+          >
+            <CupStaticFallback />
+          </motion.div>
+        )}
+      </AnimatePresence>
       <Canvas
         shadows
         dpr={dprRange}

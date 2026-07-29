@@ -92,3 +92,8 @@ export function disposeModel(key: string): void {
 export function getModelState(key: string) {
   return glbCache.get(key);
 }
+
+/** Engine Health Dashboard reading (Sprint 2.6) — this cache's live size/hit-rate, not duplicated bookkeeping. */
+export function getModelCacheStats(): { size: number; hits: number; misses: number } {
+  return { size: glbCache.size, hits: glbCache.hits, misses: glbCache.misses };
+}

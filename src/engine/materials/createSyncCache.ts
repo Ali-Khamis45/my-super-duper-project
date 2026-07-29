@@ -18,6 +18,8 @@ export interface SyncCache<T> {
   clear(disposer?: (value: T) => void): void;
   readonly hits: number;
   readonly misses: number;
+  /** Current entry count — the Engine Health Dashboard's "material/resource count" reading (Sprint 2.6). */
+  readonly size: number;
 }
 
 export interface SyncCacheOptions<T> {
@@ -88,6 +90,9 @@ export function createSyncCache<T>(options: SyncCacheOptions<T> = {}): SyncCache
     },
     get misses() {
       return misses;
+    },
+    get size() {
+      return entries.size;
     },
   };
 }

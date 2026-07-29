@@ -86,5 +86,5 @@ export function clearMaterialCache(): void {
 
 /** Performance review: material reuse / cache efficiency, measured directly rather than assumed. */
 export function getMaterialCacheStats() {
-  return { hits: materialCache.hits, misses: materialCache.misses };
+  return { hits: materialCache.hits, misses: materialCache.misses, size: materialCache.size };
 }
