@@ -3,7 +3,8 @@
  * see the sibling `engine/environment/presets.ts` and docs/03_3D_ENGINE.md
  * for the split rationale (day/night varying independently of UI theme).
  */
-export type LightingPresetName = "studio" | "night";
+/** "golden-hour"/"cafe-ambience" — Sprint 3.7's cinematic storytelling moods, additive (see `engine/environment/presets.ts`'s matching widen for the paired rationale). */
+export type LightingPresetName = "studio" | "night" | "golden-hour" | "cafe-ambience";
 
 export interface LightingPresetDefinition {
   ambient: { intensity: number };
@@ -26,6 +27,28 @@ const registry = new Map<LightingPresetName, LightingPresetDefinition>([
       ambient: { intensity: 0.2 },
       directional: { intensity: 0.8, position: [2.5, 4, 3] },
       bloom: { intensity: 0.6, threshold: 0.75 },
+    },
+  ],
+  [
+    "golden-hour",
+    // Low, warm, low-angle key light — the directional position sits lower
+    // and further to the side than "studio"'s overhead-ish angle, the same
+    // real-world cue a low sun gives.
+    {
+      ambient: { intensity: 0.35 },
+      directional: { intensity: 1.3, position: [4, 1.5, 2] },
+      bloom: { intensity: 0.4, threshold: 0.8 },
+    },
+  ],
+  [
+    "cafe-ambience",
+    // Warm but dimmer and softer than golden-hour — an indoor, enclosed
+    // mood, not an outdoor one; less bloom than night (night's drama comes
+    // from contrast against near-darkness, cafe-ambience isn't dark).
+    {
+      ambient: { intensity: 0.4 },
+      directional: { intensity: 0.7, position: [1.5, 2.5, 2.5] },
+      bloom: { intensity: 0.3, threshold: 0.85 },
     },
   ],
 ]);

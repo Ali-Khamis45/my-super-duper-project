@@ -3,6 +3,8 @@
 import dynamic from "next/dynamic";
 
 import type { CameraPresetName } from "@/engine/camera/presets";
+import type { EnvironmentPresetName } from "@/engine/environment/presets";
+import type { LightingPresetName } from "@/engine/lighting/presets";
 
 import type { CupPartName, CupPartProps, ResolvedIngredientLayer } from "../registry/types";
 import { CupStaticFallback } from "./CupStaticFallback";
@@ -24,9 +26,20 @@ interface CupCanvasLoaderProps {
   route?: string;
   /** Sprint 3.5 — `features/concierge/` is this prop's first real caller. */
   cameraPreset?: CameraPresetName;
+  /** Sprint 3.7 — `features/storytelling/` is this prop pair's first real caller. */
+  lightingPresetOverride?: LightingPresetName;
+  environmentPresetOverride?: EnvironmentPresetName;
 }
 
-export function CupCanvasLoader({ partOverrides, cupScale, ingredientLayers, route, cameraPreset }: CupCanvasLoaderProps = {}) {
+export function CupCanvasLoader({
+  partOverrides,
+  cupScale,
+  ingredientLayers,
+  route,
+  cameraPreset,
+  lightingPresetOverride,
+  environmentPresetOverride,
+}: CupCanvasLoaderProps = {}) {
   return (
     <CupCanvas
       partOverrides={partOverrides}
@@ -34,6 +47,8 @@ export function CupCanvasLoader({ partOverrides, cupScale, ingredientLayers, rou
       ingredientLayers={ingredientLayers}
       route={route}
       cameraPreset={cameraPreset}
+      lightingPresetOverride={lightingPresetOverride}
+      environmentPresetOverride={environmentPresetOverride}
     />
   );
 }

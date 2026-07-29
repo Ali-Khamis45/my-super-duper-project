@@ -1,5 +1,7 @@
 import * as THREE from "three";
 
+import { sharedUniforms } from "../common/uniforms";
+
 /**
  * The physically-lit path (docs/13_SHADER_ARCHITECTURE.md) — extends an
  * existing `MeshPhysicalMaterial` via `onBeforeCompile` rather than hand-
@@ -47,17 +49,25 @@ export function injectFresnelRim(shader: THREE.WebGLProgramParametersWithUniform
   shader.uniforms.uFresnelColor = { value: color };
   shader.uniforms.uFresnelIntensity = { value: intensity };
   shader.uniforms.uFresnelPower = { value: power };
+  // Sprint 3.7 — by reference, not a clone (this file's own shared-uniform
+  // convention, `common/uniforms.ts`'s doc comment): coffee's "highlights"
+  // and foam's "glow" both boost through this one shared injection point,
+  // 0 (every non-story route, and the story route outside whichever
+  // chapter drives it) reproducing today's exact rim intensity.
+  shader.uniforms.uStorytellingProgress = sharedUniforms.uStorytellingProgress;
 
   shader.fragmentShader = `
 uniform vec3 uFresnelColor;
 uniform float uFresnelIntensity;
 uniform float uFresnelPower;
+uniform float uStorytellingProgress;
 ${shader.fragmentShader}
 `.replace(
     "#include <opaque_fragment>",
     `
 float rimFresnel = pow(1.0 - clamp(dot(geometryViewDir, geometryNormal), 0.0, 1.0), uFresnelPower);
-outgoingLight += uFresnelColor * rimFresnel * uFresnelIntensity;
+float rimBoost = 1.0 + uStorytellingProgress * 2.0;
+outgoingLight += uFresnelColor * rimFresnel * uFresnelIntensity * rimBoost;
 #include <opaque_fragment>
 `,
   );

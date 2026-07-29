@@ -10,12 +10,16 @@ describe("camera preset registry", () => {
   });
 
   it("throws a clear, actionable error for an unregistered preset", () => {
-    expect(() => resolveCameraPreset("product")).toThrow(/not registered yet/);
+    // "ingredient" — still deliberately unregistered as of Sprint 3.7 (see
+    // this file's own doc comment); "product"/"checkout"/"exploded" were
+    // this exact kind of typed-but-unregistered placeholder until Sprint
+    // 3.7 gave each one a real config.
+    expect(() => resolveCameraPreset("ingredient")).toThrow(/not registered yet/);
   });
 
   it("registerCameraPreset makes a new preset resolvable without touching existing ones", () => {
-    registerCameraPreset("product", { position: [1, 2, 3], fov: 40, lookAt: [0, 0, 0] });
-    expect(resolveCameraPreset("product")).toEqual({ position: [1, 2, 3], fov: 40, lookAt: [0, 0, 0] });
+    registerCameraPreset("ingredient", { position: [1, 2, 3], fov: 40, lookAt: [0, 0, 0] });
+    expect(resolveCameraPreset("ingredient")).toEqual({ position: [1, 2, 3], fov: 40, lookAt: [0, 0, 0] });
     // The existing "hero" preset is unaffected by registering a new one.
     expect(resolveCameraPreset("hero").fov).toBe(30);
   });

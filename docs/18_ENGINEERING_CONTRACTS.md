@@ -36,15 +36,16 @@ Every Zustand store, current and planned, frozen the same way managers are. Two 
 | Persistence | None |
 | Future extensions | None anticipated — this store's shape is narrow and complete for its one job |
 
-### `scrollProgress` bridge store (new, Sprint 2.1)
+### `scrollProgress` bridge store (Implemented, Sprint 3.7 — designed Sprint 2.1)
 
 | | |
 |---|---|
-| Responsibilities | `0-1` scroll progress written from `ScrollTrigger.onUpdate`, read reactively by DOM narrative components and imperatively by `CameraRig` |
+| Responsibilities | `0-1` scroll progress written from `ScrollTrigger.onUpdate` (`features/storytelling/hooks/useScrollTimeline.ts`), read reactively by DOM narrative components |
 | Selectors | `useValue()`, `getValue()` |
 | Actions | `setValue(progress)` |
 | Persistence | None |
-| Future extensions | A future multi-section narrative may need a second, section-scoped progress value alongside the global one — that's a **second** `createBridgeStore` instance (`sectionProgress`), never an overload of this one's meaning |
+| Real deviation from the original design | Not read imperatively by `CameraRig` as this contract originally sketched — Sprint 3.7's actual brief ("Do not modify Camera contracts") ruled that out; `features/storytelling/` reads this store itself and drives `CameraRig` only through its existing, unmodified `preset` prop instead. See [26_API_STABILITY.md](26_API_STABILITY.md)'s `CameraPathName` row for the full reasoning. |
+| Future extensions | A future multi-section narrative may need a second, section-scoped progress value alongside the global one — that's a **second** `createBridgeStore` instance (`sectionProgress`), never an overload of this one's meaning. (`storytelling-store.ts`'s `chapterProgress` field ended up covering this need for Sprint 3.7 itself, as a plain Zustand field rather than a second bridge store — chapter changes are discrete/infrequent enough that a bridge store's no-re-render escape hatch wasn't needed there.) |
 
 ### Customizer store (future, Milestone 4 — designed now per [15_ARCHITECTURE_FREEZE.md](15_ARCHITECTURE_FREEZE.md) scenario 4, not built)
 

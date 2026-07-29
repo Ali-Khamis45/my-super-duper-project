@@ -138,9 +138,9 @@ Moved here from `engine/graphics/MaterialFactory.ts` (mechanical relocation, zer
 
 Real day/night `EnvironmentPresetDefinition`/`LightingPresetDefinition` entries populating the registries built this sprint, independent of light/dark UI theme.
 
-### Camera paths / Scroll Storytelling — Milestone 6
+### Camera paths / Scroll Storytelling — resolved differently in Sprint 3.7, not built as anticipated
 
-Deliberately not scaffolded this sprint (see retrospective in [reviews/sprint-2.1-review.md](reviews/sprint-2.1-review.md)) — a `CameraPath` registry and `CameraRig`'s `path` prop arrive with Milestone 6, when GSAP ScrollTrigger and `scrollProgress` actually exist to drive them.
+GSAP `ScrollTrigger` and `scrollProgress` do now exist (Sprint 3.7, `features/storytelling/`), but a `CameraPath` registry and `CameraRig`'s `path` prop were deliberately **not** built — Sprint 3.7's actual brief was explicit ("Do not modify Camera contracts. Implement through new presets only"). Built instead: `features/storytelling/`'s 7 chapters each switch to their own real, registered `CameraPresetName` at a chapter boundary, and `CameraRig`'s existing, completely unmodified damped preset-to-preset interpolation provides the smooth-glide feel. See [26_API_STABILITY.md](26_API_STABILITY.md)'s `CameraPathName` row for the full reasoning — this remains the real design for a future sprint that specifically wants continuous, per-pixel camera scrubbing rather than per-chapter discrete moves.
 
 ---
 

@@ -6,8 +6,10 @@ import { CameraRig } from "@/engine/camera/CameraRig";
 import type { CameraPresetName } from "@/engine/camera/presets";
 import { DevPanelStatsCollector } from "@/engine/devpanel/DevPanel";
 import { EffectsStack } from "@/engine/effects/EffectsStack";
+import type { EnvironmentPresetName } from "@/engine/environment/presets";
 import { resolveEnvironmentPreset } from "@/engine/environment/presets";
 import { SceneEnvironment } from "@/engine/graphics/EnvironmentFactory";
+import type { LightingPresetName } from "@/engine/lighting/presets";
 import { resolveLightingPreset } from "@/engine/lighting/presets";
 import { notifyThemeMaterialsUpdated } from "@/engine/materials";
 import { performanceManager } from "@/engine/performance";
@@ -35,11 +37,29 @@ interface CupSceneProps {
   route?: string;
   /** Sprint 3.5 — `features/concierge/` is this prop's first real caller (the "ai" preset, a real second-preset `CameraRig` switches to live). Defaults to `"hero"`, matching every prior route's unchanged behavior. */
   cameraPreset?: CameraPresetName;
+  /**
+   * Sprint 3.7 — `features/storytelling/` is this prop's first real
+   * caller, switching lighting/environment per chapter instead of by
+   * light/dark theme. Undefined for every prior route, so `themeToPresetMap`
+   * still decides — byte-for-byte unchanged behavior when omitted.
+   */
+  lightingPresetOverride?: LightingPresetName;
+  environmentPresetOverride?: EnvironmentPresetName;
 }
 
-export function CupScene({ partOverrides, cupScale, ingredientLayers, route = "/", cameraPreset = "hero" }: CupSceneProps) {
+export function CupScene({
+  partOverrides,
+  cupScale,
+  ingredientLayers,
+  route = "/",
+  cameraPreset = "hero",
+  lightingPresetOverride,
+  environmentPresetOverride,
+}: CupSceneProps) {
   const theme = useActiveTheme();
-  const { environment, lighting: lightingPresetName } = themeToPresetMap[theme];
+  const themeDefaults = themeToPresetMap[theme];
+  const lightingPresetName = lightingPresetOverride ?? themeDefaults.lighting;
+  const environment = environmentPresetOverride ?? themeDefaults.environment;
   const lightingPreset = resolveLightingPreset(lightingPresetName);
   const reducedMotion = usePrefersReducedMotion();
   const parallaxSource = useMouseParallax();
@@ -66,6 +86,18 @@ export function CupScene({ partOverrides, cupScale, ingredientLayers, route = "/
   // so reduced-motion users see the target value directly, unsmoothed.
   const smoothedBloomIntensity = useSmoothedValue(bloomTarget, 6);
   const bloomIntensity = reducedMotion ? bloomTarget : smoothedBloomIntensity;
+
+  // Sprint 3.7 — the same damped-toward-target technique as bloom above,
+  // applied to ambient/directional intensity: `lightingPresetOverride`
+  // switching per chapter now has something to blend *through* instead of
+  // snapping instantly. Every pre-3.7 caller only ever changes
+  // `lightingPresetName` on a theme toggle, where this was already the
+  // exact existing (untested-as-such, but present) transition speed —
+  // this doesn't change that route's feel, it just names and reuses it.
+  const smoothedAmbientIntensity = useSmoothedValue(lightingPreset.ambient.intensity, 6);
+  const smoothedDirectionalIntensity = useSmoothedValue(lightingPreset.directional.intensity, 6);
+  const ambientIntensity = reducedMotion ? lightingPreset.ambient.intensity : smoothedAmbientIntensity;
+  const directionalIntensity = reducedMotion ? lightingPreset.directional.intensity : smoothedDirectionalIntensity;
 
   // Structurally checked against the frozen Scene Composition contract
   // (docs/22_MANAGER_INTERFACES.md) rather than left as ad hoc props — a
@@ -99,10 +131,10 @@ export function CupScene({ partOverrides, cupScale, ingredientLayers, route = "/
         enabled={!reducedMotion}
       />
       <SceneEnvironment preset={environmentPreset} />
-      <ambientLight intensity={lightingPreset.ambient.intensity} />
+      <ambientLight intensity={ambientIntensity} />
       <directionalLight
         position={lightingPreset.directional.position}
-        intensity={lightingPreset.directional.intensity}
+        intensity={directionalIntensity}
         castShadow
         shadow-mapSize={[qualityPolicy.shadowMapSize, qualityPolicy.shadowMapSize]}
       />

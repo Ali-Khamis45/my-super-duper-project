@@ -60,6 +60,25 @@ export function publishInteractionState(isInteracting: boolean): void {
   sharedUniforms.uIsInteracting.value = isInteracting ? 1 : 0;
 }
 
+/**
+ * Sprint 3.7's first real publisher — `features/storytelling/`'s scroll
+ * driver (which owns chapter-boundary knowledge — `data/chapters.ts` is
+ * its data, not duplicated here) is the single call site. Not the raw
+ * global page fraction: the driver publishes 0 whenever scroll is outside
+ * whichever chapter currently drives a shader-reactive moment (so
+ * every non-story route, which never calls this at all, stays at the
+ * initial value 0 — a neutral baseline, not "zero density"), and that
+ * chapter's own local 0-1 progress while inside it. Shaders that opt in
+ * (steam/coffee/foam) reference `sharedUniforms.uStorytellingProgress` by
+ * the same by-reference convention every other shared uniform follows,
+ * and treat 0 as "no storytelling effect active" — never as "fully faded
+ * out" — so a shader's own baseline look is what every non-story route
+ * (and the story route outside the driving chapter) already sees today.
+ */
+export function publishStorytellingProgress(progress: number): void {
+  sharedUniforms.uStorytellingProgress.value = progress;
+}
+
 /** Per-instance uniforms — a fresh object per shader material instance, never shared, so repeated instances stay independent. */
 export function createPerInstanceUniforms() {
   return {

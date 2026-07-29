@@ -51,7 +51,7 @@ Three tools exist in the dependency tree today; only two are used. The rule that
 |---|---|---|
 | **Framer Motion** | DOM element entrances, hover/tap/press micro-interactions, anything discrete and component-scoped | Already the house style for Milestone 1's DOM motion; React-state-driven, which fits component-local interactions naturally |
 | **Raw R3F `useFrame`** | Continuous 3D object animation where the *state is the frame-by-frame transform itself* — idle float, auto-rotate, inertia decay, steam rise, (Milestone 3) coffee/foam surface physics | These aren't React state — forcing them through `setState` would mean 60 renders/sec for no reason; `useFrame` mutating refs directly is the correct, already-proven pattern |
-| **GSAP + ScrollTrigger** | Timeline-based sequencing — multiple coordinated steps triggered by scroll position or narrative beats (Scroll Storytelling, Milestone 6) | GSAP's timeline model (named labels, precise offsets, multiple simultaneous targets) fits multi-step choreography in a way neither Framer variants nor hand-rolled `useFrame` does cleanly. Installed since Milestone 1, unused until this is the actual job |
+| **GSAP + ScrollTrigger** | Timeline-based sequencing — multiple coordinated steps triggered by scroll position or narrative beats | **Implemented, Sprint 3.7** (`features/storytelling/hooks/useScrollTimeline.ts`) — chapter-boundary detection and progress publishing, specifically (not scroll-scrubbed camera interpolation — see this doc's Camera paths section below for why). GSAP's timeline model fits this multi-step choreography in a way neither Framer variants nor hand-rolled `useFrame` does cleanly. Installed since Milestone 1, unused until Sprint 3.7 gave it a real job |
 
 Nothing new is installed to make this work — GSAP has been a dependency since the project scaffold; it simply hasn't had a job yet.
 
@@ -75,11 +75,11 @@ export function createBridgeStore<T>(initial: T) {
 
 The dev-stats store and the keyboard-rotation store are migrated onto it. `useMouseParallax` still writes to a plain ref rather than a bridge store — its consumer (`CameraRig`) never needs the *reactive* `useValue()` half, so the extra indirection wasn't worth it there; not every DOM/R3F-boundary value needs to be a full bridge store, only the ones with a real reactive consumer on the other side.
 
-**`scrollProgress` was deliberately not created this sprint**, despite being sketched here and approved as a Sprint 2.1 deliverable during RC0. It would have zero real consumers until GSAP ScrollTrigger exists (Milestone 6) and adds no logic beyond what `createBridgeStore`'s own tests already prove — a genuinely inert, zero-behavior file, unlike the camera transition interpolation built this same sprint (real, testable logic with no live production caller yet, but not *zero* logic either). See this sprint's retrospective ([reviews/sprint-2.1-review.md](reviews/sprint-2.1-review.md)) for the full reasoning. `ScrollTrigger`'s `onUpdate: (self) => scrollProgress.setValue(self.progress)` wiring below is still the correct design for Milestone 6, when the instance is actually created.
+**`scrollProgress` is now populated, Sprint 3.7** — `features/storytelling/hooks/useScrollTimeline.ts`'s page-spanning `ScrollTrigger.onUpdate: (self) => scrollProgress.setValue(self.progress)` is the real first caller, exactly the wiring this doc sketched back in Sprint 2.1. The store itself (`engine/state/scrollProgress.ts`) was left deliberately uncreated until this sprint gave it a real consumer — see [reviews/sprint-2.1-review.md](reviews/sprint-2.1-review.md) for that original reasoning.
 
-### Lenis + GSAP integration
+### Lenis + GSAP integration — Implemented, Sprint 3.7
 
-Lenis (smooth scroll) and GSAP's `ScrollTrigger` each want to own the scroll-driven raf loop; running both independently desyncs them (visible jank, mistimed triggers). The documented, correct wiring:
+Lenis (smooth scroll) and GSAP's `ScrollTrigger` each want to own the scroll-driven raf loop; running both independently desyncs them (visible jank, mistimed triggers). Built exactly as documented here, inside `SmoothScrollProvider.tsx`:
 
 ```ts
 lenis.on("scroll", ScrollTrigger.update);
@@ -87,11 +87,11 @@ gsap.ticker.add((time) => lenis.raf(time * 1000));
 gsap.ticker.lagSmoothing(0);
 ```
 
-GSAP's ticker becomes the single driver; Lenis stops running its own internal `requestAnimationFrame` loop. This wiring lives in `SmoothScrollProvider` (already reduced-motion-gated — nothing changes there) and only activates once a route actually uses `ScrollTrigger`, i.e., Milestone 6, not before.
+GSAP's ticker is the single driver (`ReactLenis`'s `autoRaf: false`); Lenis no longer runs its own internal `requestAnimationFrame` loop. Mounted globally (every route already goes through `SmoothScrollProvider`), not conditionally per-route — inert everywhere no `ScrollTrigger` is registered (an idle `ScrollTrigger.update()` call with zero triggers is a no-op), and functionally identical scroll smoothness for every route that isn't `/story`. Reduced motion still skips Lenis entirely (unchanged) — `features/storytelling/`'s own reduced-motion path also never registers a scroll-scrubbed `ScrollTrigger`, so the two stay consistent.
 
-### Camera paths — the 3D side of storytelling
+### Camera paths — resolved differently in Sprint 3.7, not built as anticipated
 
-Wired directly to [03_3D_ENGINE.md](03_3D_ENGINE.md)'s Camera Manager design: a `CameraPath` will be an ordered list of keyframe presets; `CameraRig` will accept `path={{ name, progress: scrollProgress.getValue() }}` and interpolate between keyframes instead of damping toward a single preset. **Not built in Sprint 2.1** despite earlier sketches implying it would be scaffolded then — `engine/camera/paths.ts` and the `path` prop don't exist yet. Camera Manager transitions (which Sprint 2.1 *did* build — preset-to-preset interpolation) are a real, distinct capability from path-driven interpolation; scaffolding an empty path registry with a permanently-unreachable `path` prop branch would have been the same category of dead code as a standalone `scrollProgress` store, so both were deferred together to Milestone 6, when GSAP ScrollTrigger gives them an actual caller.
+This section anticipated a `CameraPath` (an ordered list of keyframe presets) and `CameraRig` accepting `path={{ name, progress: scrollProgress.getValue() }}`, interpolating between keyframes instead of damping toward a single preset. **Not built** — Sprint 3.7's actual brief was explicit instead: *"Add cinematic camera paths. Reuse Camera Manager. Do not modify Camera contracts. Implement through new presets only."* Verified directly against `CameraRig.tsx`'s real implementation before choosing a design: it only re-resolves its target preset at React render time, not per-frame, so a continuously-updated computed preset would never actually be picked up without forcing `CameraRig` to re-render every scroll frame — a real performance regression its own frame loop is built to avoid. Built instead: each of `features/storytelling/`'s 7 chapters switches to its own real, registered `CameraPresetName` at a chapter boundary (a discrete narrative beat), and `CameraRig`'s existing, completely unmodified damped preset-to-preset interpolation (built Sprint 2.1) provides the smooth-glide feel — continuous, scroll-scrubbed motion within a chapter (the assembly moment, the ingredient orbit, the shader density boost) lives entirely in `CupAssembly`'s own damping and the shared uniform block, never in the Camera Manager. `engine/camera/paths.ts` and `CameraRig`'s `path` prop remain undesigned in code — the real design for a future sprint that specifically wants continuous, per-pixel camera scrubbing rather than per-chapter discrete moves. See [26_API_STABILITY.md](26_API_STABILITY.md)'s `CameraPathName` row for the full reasoning.
 
 ### Coffee/foam liquid physics (Sprint 3.4) — not a physics engine
 
@@ -109,7 +109,7 @@ GSAP ships `gsap.matchMedia()` specifically for this — a context scoped to `(p
 
 ### Independent animation modules
 
-Each animation — steam's rise-and-fade, the cup's idle float, a future ScrollTrigger timeline — stays a self-contained module that doesn't need to know another one exists (steam's `useFrame` has no awareness of the camera path's `useFrame`, and vice versa). This isn't a new rule; it's already true of every Milestone 1 animation and is worth stating explicitly so it stays true as the number of concurrent animations grows — a future contributor should never need to trace cross-module animation dependencies to change one.
+Each animation — steam's rise-and-fade, the cup's idle float, `features/storytelling/`'s `ScrollTrigger` timeline — stays a self-contained module that doesn't need to know another one exists (steam's `useFrame` has no awareness of `CupAssembly`'s own part-displacement damping, and vice versa). This isn't a new rule; it's already true of every Milestone 1 animation and is worth stating explicitly so it stays true as the number of concurrent animations grows — a future contributor should never need to trace cross-module animation dependencies to change one.
 
 ## Related
 

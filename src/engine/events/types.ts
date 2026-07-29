@@ -65,6 +65,16 @@ export type AppEvent =
   | { name: "taste-profile:updated"; field: string }
   | { name: "cart:item-added"; recipeId: string }
   | { name: "cart:item-removed"; recipeId: string }
-  | { name: "cart:updated"; itemCount: number; total: number };
+  | { name: "cart:updated"; itemCount: number; total: number }
+  /**
+   * Sprint 3.7 — fires once per chapter-boundary crossing (a real, discrete
+   * narrative beat), never per scroll pixel. Continuous scroll position is
+   * `engine/state/scrollProgress.ts`'s bridge store, deliberately not an
+   * event, for the exact reason `uniform:updated` above is never wired to
+   * fire per-frame: an event per continuous-value tick would be a real
+   * performance bug, not just noise.
+   */
+  | { name: "chapter:entered"; chapterId: string }
+  | { name: "story:skipped"; fromChapterId: string };
 
 export type AppEventName = AppEvent["name"];

@@ -1,6 +1,6 @@
 import * as THREE from "three";
 
-import { createPerInstanceUniforms } from "../common/uniforms";
+import { createPerInstanceUniforms, sharedUniforms } from "../common/uniforms";
 import { shaderRegistry } from "../registry";
 import type { ShaderDefinition } from "../types";
 import { steamFragmentShader } from "./steam.frag";
@@ -22,6 +22,10 @@ export function createSteamMaterial(uniformOverrides?: Record<string, THREE.IUni
     uniforms: {
       ...createPerInstanceUniforms(),
       uOpacity: { value: 0 },
+      // Sprint 3.7 — by reference, not a clone, per this file's own shared-
+      // uniform convention: a publish in `common/uniforms.ts` updates every
+      // steam instance (all 3 billboard planes, every route) in one write.
+      uStorytellingProgress: sharedUniforms.uStorytellingProgress,
       ...uniformOverrides,
     },
     transparent: true,

@@ -9,6 +9,8 @@ import { track } from "@/engine/analytics/tracking";
 import { initTexturePipeline } from "@/engine/assets/textures";
 import { resolveCameraPreset } from "@/engine/camera/presets";
 import type { CameraPresetName } from "@/engine/camera/presets";
+import type { EnvironmentPresetName } from "@/engine/environment/presets";
+import type { LightingPresetName } from "@/engine/lighting/presets";
 import { fadeIn } from "@/engine/motion/presets";
 import { performanceManager } from "@/engine/performance";
 import { resolveQualityPolicy } from "@/engine/performance/qualityPolicy";
@@ -30,6 +32,9 @@ interface CupCanvasProps {
   route?: string;
   /** Sprint 3.5 — threaded straight through to `CupScene`; also seeds this `<Canvas>`'s *initial* camera prop below (`CameraRig` only takes over smoothing *after* first mount — see its own "first mount only: snap instantly" comment). Defaults to `"hero"`, matching every prior route's unchanged behavior. */
   cameraPreset?: CameraPresetName;
+  /** Sprint 3.7 — threaded straight through to `CupScene`. */
+  lightingPresetOverride?: LightingPresetName;
+  environmentPresetOverride?: EnvironmentPresetName;
 }
 
 /**
@@ -45,7 +50,15 @@ interface CupCanvasProps {
  * layered on top instead, and the (invisible, still-listening) Canvas
  * underneath is what lets a real restoration actually be caught.
  */
-export default function CupCanvas({ partOverrides, cupScale, ingredientLayers, route, cameraPreset = "hero" }: CupCanvasProps = {}) {
+export default function CupCanvas({
+  partOverrides,
+  cupScale,
+  ingredientLayers,
+  route,
+  cameraPreset = "hero",
+  lightingPresetOverride,
+  environmentPresetOverride,
+}: CupCanvasProps = {}) {
   // Read once per mount (the prop won't change after mount for any current
   // caller), not re-resolved every render — `resolveCameraPreset` always
   // returns the same object reference for a given name anyway.
@@ -122,6 +135,8 @@ export default function CupCanvas({ partOverrides, cupScale, ingredientLayers, r
             ingredientLayers={ingredientLayers}
             route={route}
             cameraPreset={cameraPreset}
+            lightingPresetOverride={lightingPresetOverride}
+            environmentPresetOverride={environmentPresetOverride}
           />
         </Suspense>
       </Canvas>

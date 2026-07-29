@@ -5,11 +5,14 @@ import { useRef } from "react";
 import type { Group } from "three";
 
 import { float } from "@/engine/motion/presets";
+import { useSmoothedVector3 } from "@/engine/performance/useSmoothedVector3";
 
 import { useCupInteractionState } from "../hooks/useCupInteractionState";
 import { useLiquidPhysics } from "../hooks/useLiquidPhysics";
 import { CUP_PART_ORDER, resolveCupPart } from "../registry/cupPartRegistry";
 import type { CupPartName, CupPartProps, ResolvedIngredientLayer } from "../registry/types";
+
+const ZERO_VECTOR: [number, number, number] = [0, 0, 0];
 
 interface CupAssemblyProps {
   reducedMotion: boolean;
@@ -56,6 +59,21 @@ export function CupAssembly({ reducedMotion, partOverrides, scale, ingredientLay
   // comment on why this lives at the assembly level and not per-part.
   const physicsRef = useLiquidPhysics({ velocityRef, interactionState: state, reducedMotion });
 
+  // Sprint 3.7 — the only two parts a caller (currently only
+  // `features/storytelling/`, for the "cup assembles from floating
+  // pieces" moment) ever displaces: the lid lifting off and the sleeve
+  // sliding away. Smoothed (not snapped) toward whatever target
+  // `partOverrides` supplies, via the same damped-toward-target technique
+  // `CameraRig` uses for preset transitions. Real hook calls, unconditional
+  // every render per the Rules of Hooks — not a generic per-part loop,
+  // since `CUP_PART_ORDER`'s other six parts never move. Every pre-3.7
+  // caller (Hero, customizer, concierge) never sets `lid`/`sleeve`
+  // position/rotation, so these converge to `ZERO_VECTOR` — identical to
+  // each part's own previous, always-undefined position/rotation prop.
+  const lidPosition = useSmoothedVector3(partOverrides?.lid?.position ?? ZERO_VECTOR);
+  const lidRotation = useSmoothedVector3(partOverrides?.lid?.rotation ?? ZERO_VECTOR);
+  const sleevePosition = useSmoothedVector3(partOverrides?.sleeve?.position ?? ZERO_VECTOR);
+
   useFrame(({ clock }, delta) => {
     const group = groupRef.current;
     if (!group) return;
@@ -81,6 +99,8 @@ export function CupAssembly({ reducedMotion, partOverrides, scale, ingredientLay
         return (
           <Part
             key={name}
+            position={name === "lid" ? lidPosition : name === "sleeve" ? sleevePosition : undefined}
+            rotation={name === "lid" ? lidRotation : undefined}
             visible={name === "steam" ? !reducedMotion : override?.visible}
             materialOverrides={override?.materialOverrides}
             physicsRef={physicsRef}

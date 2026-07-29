@@ -50,6 +50,19 @@ export interface QualityPolicy {
     /** Whether foam/ice run their own independent spring follower, or cheaply alias a scaled copy of the primary tilt signal. */
     secondaryMotion: boolean;
   };
+  /**
+   * Sprint 3.7's first real consumer — `features/storytelling/`'s
+   * `StoryCanvas`. Same "scale, never disable" shape as `coffeePhysics`
+   * above: the brief's own "Quality tiers must automatically scale
+   * storytelling effects" is read literally as *scale*, consistent with
+   * this table's one already-stated exception being `bloomEnabled` alone.
+   */
+  storytellingEffects: {
+    /** 0-1, multiplies the steam/coffee/foam `uStorytellingProgress`-driven boost — never 0. */
+    shaderBoostIntensity: number;
+    /** How many of a chapter's featured ingredients actually render (of a fixed, small pool) — never 0. */
+    maxFeaturedIngredients: number;
+  };
 }
 
 const QUALITY_POLICY: Record<QualityTier, QualityPolicy> = {
@@ -62,6 +75,7 @@ const QUALITY_POLICY: Record<QualityTier, QualityPolicy> = {
     maxParticleCount: 512,
     steamQuality: "full",
     coffeePhysics: { intensity: 1, maxActiveRipples: 4, secondaryMotion: true },
+    storytellingEffects: { shaderBoostIntensity: 1, maxFeaturedIngredients: 3 },
   },
   high: {
     dprRange: [1, 2],
@@ -72,6 +86,7 @@ const QUALITY_POLICY: Record<QualityTier, QualityPolicy> = {
     maxParticleCount: 256,
     steamQuality: "full",
     coffeePhysics: { intensity: 1, maxActiveRipples: 4, secondaryMotion: true },
+    storytellingEffects: { shaderBoostIntensity: 1, maxFeaturedIngredients: 3 },
   },
   medium: {
     dprRange: [1, 1.5],
@@ -82,6 +97,7 @@ const QUALITY_POLICY: Record<QualityTier, QualityPolicy> = {
     maxParticleCount: 128,
     steamQuality: "placeholder",
     coffeePhysics: { intensity: 0.7, maxActiveRipples: 3, secondaryMotion: true },
+    storytellingEffects: { shaderBoostIntensity: 0.7, maxFeaturedIngredients: 3 },
   },
   low: {
     dprRange: [1, 1],
@@ -92,6 +108,7 @@ const QUALITY_POLICY: Record<QualityTier, QualityPolicy> = {
     maxParticleCount: 48,
     steamQuality: "placeholder",
     coffeePhysics: { intensity: 0.45, maxActiveRipples: 2, secondaryMotion: false },
+    storytellingEffects: { shaderBoostIntensity: 0.5, maxFeaturedIngredients: 2 },
   },
   minimal: {
     dprRange: [1, 1],
@@ -102,6 +119,7 @@ const QUALITY_POLICY: Record<QualityTier, QualityPolicy> = {
     maxParticleCount: 0,
     steamQuality: "placeholder",
     coffeePhysics: { intensity: 0.25, maxActiveRipples: 1, secondaryMotion: false },
+    storytellingEffects: { shaderBoostIntensity: 0.25, maxFeaturedIngredients: 1 },
   },
 };
 
