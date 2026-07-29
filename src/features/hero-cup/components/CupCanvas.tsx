@@ -16,12 +16,20 @@ import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 import { useCupKeyboardTrigger } from "../hooks/useCupKeyboardControls";
 import { useWebGLContextRecovery } from "../hooks/useWebGLContextRecovery";
 import { useWebGLSupport } from "../hooks/useWebGLSupport";
+import type { CupPartName, CupPartProps } from "../registry/types";
 import { CupScene } from "./CupScene";
 import { CupStaticFallback } from "./CupStaticFallback";
 
 // Read once at module scope, not per-render — resolveCameraPreset always
 // returns the same object reference for a given name anyway.
 const heroCameraPreset = resolveCameraPreset("hero");
+
+interface CupCanvasProps {
+  /** Sprint 3.2 — threaded straight through to `CupScene`/`CupAssembly`. `undefined` for the Hero route (the only caller before this sprint), so its rendering is byte-for-byte unchanged. */
+  partOverrides?: Partial<Record<CupPartName, CupPartProps>>;
+  cupScale?: number;
+  route?: string;
+}
 
 /**
  * The ssr:false-dynamic-imported entry point — everything `three`/R3F lives
@@ -36,7 +44,7 @@ const heroCameraPreset = resolveCameraPreset("hero");
  * layered on top instead, and the (invisible, still-listening) Canvas
  * underneath is what lets a real restoration actually be caught.
  */
-export default function CupCanvas() {
+export default function CupCanvas({ partOverrides, cupScale, route }: CupCanvasProps = {}) {
   const webglSupported = useWebGLSupport();
   const reducedMotion = usePrefersReducedMotion();
   const { contextLost, handleCreated } = useWebGLContextRecovery();
@@ -103,7 +111,7 @@ export default function CupCanvas() {
         onCreated={onCreated}
       >
         <Suspense fallback={null}>
-          <CupScene />
+          <CupScene partOverrides={partOverrides} cupScale={cupScale} route={route} />
         </Suspense>
       </Canvas>
     </div>

@@ -2,10 +2,11 @@ import { forwardRef, useMemo } from "react";
 import * as THREE from "three";
 import type { Group } from "three";
 
-import { createSleeveMaterial, getOrCreateMaterial, updateMaterialColor, updateMaterialParams } from "@/engine/materials";
+import { createSleeveMaterial, getOrCreateMaterial, updateMaterialParams } from "@/engine/materials";
 import { espressoColor } from "@/engine/theme/ColorSchemes";
 
 import { cupRadiusAtHeight, SLEEVE_BOTTOM_HEIGHT, SLEEVE_TOP_HEIGHT } from "../geometry/cupProfile";
+import { materialOverridesToVariant } from "../lib/materialOverridesToVariant";
 import type { CupPartProps } from "../registry/types";
 
 const RIM_CLEARANCE = 0.012;
@@ -22,17 +23,16 @@ export const ProceduralSleeve = forwardRef<Group, CupPartProps>(function Procedu
   }, []);
 
   const material = useMemo(() => {
-    const colorObj = espressoColor(400);
-
-    if (materialOverrides) {
-      const mat = createSleeveMaterial(colorObj);
-      updateMaterialParams(mat, "sleeve", materialOverrides);
-      if (materialOverrides.color) updateMaterialColor(mat, new THREE.Color(materialOverrides.color));
-      return mat;
-    }
-
-    const colorHex = `#${colorObj.getHexString()}`;
-    return getOrCreateMaterial({ surface: "sleeve", colorHex }, () => createSleeveMaterial(colorObj)) as THREE.MeshPhysicalMaterial;
+    const colorHex = materialOverrides?.color ?? `#${espressoColor(400).getHexString()}`;
+    // Sprint 3.2: same shared-cache routing as ProceduralCup — see its comment.
+    return getOrCreateMaterial(
+      { surface: "sleeve", colorHex, variant: materialOverridesToVariant(undefined, materialOverrides) },
+      () => {
+        const mat = createSleeveMaterial(new THREE.Color(colorHex));
+        if (materialOverrides) updateMaterialParams(mat, "sleeve", materialOverrides);
+        return mat;
+      },
+    ) as THREE.MeshPhysicalMaterial;
   }, [materialOverrides]);
 
   const centerHeight = (SLEEVE_BOTTOM_HEIGHT + SLEEVE_TOP_HEIGHT) / 2;

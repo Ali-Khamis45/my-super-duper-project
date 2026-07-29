@@ -46,6 +46,11 @@ export type AppEvent =
   | { name: "uniform:updated"; uniform: string }
   | { name: "ai:recommendation-ready"; recommendationId: string }
   | { name: "checkout:started"; cartTotal: number }
-  | { name: "checkout:completed"; orderId: string };
+  | { name: "checkout:completed"; orderId: string }
+  | { name: "customizer:opened" }
+  | { name: "customizer:closed" }
+  | { name: "variant:selected"; category: string; variantId: string; via: "click" | "keyboard" }
+  | { name: "preset:applied"; presetId: string }
+  | { name: "preset:reset" };
 
 export type AppEventName = AppEvent["name"];

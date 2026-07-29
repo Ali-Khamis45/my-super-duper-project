@@ -1,6 +1,6 @@
 # hero-cup
 
-The full-viewport hero: a live, interactive, procedurally-modeled coffee cup rendered with React Three Fiber. This README is the template every future `features/<name>/` folder follows — Architecture, Flow, Responsibilities, Future Extension.
+The full-viewport hero: a live, interactive, procedurally-modeled coffee cup rendered with React Three Fiber. Also, since Sprint 3.2, the rendering engine `features/customizer/` reuses to power `/customize` — this README is the template every future `features/<name>/` folder follows — Architecture, Flow, Responsibilities, Future Extension.
 
 ## Architecture
 
@@ -18,37 +18,39 @@ hero-cup/
 │   └── model/               empty — future GLB-backed parts land here
 ├── registry/{types,cupPartRegistry}.ts   the CupPartProps contract + registry
 ├── geometry/{cupProfile,cupGeometry}.ts  hand-authored silhouettes + builders
+├── lib/materialOverridesToVariant.ts     Sprint 3.2's first real `lib/` consumer — see below
 └── hooks/{useCupInteractionState,useCupKeyboardControls,useMouseParallax,useWebGLSupport}.ts
 ```
 
-No `lib/` folder exists this milestone — an earlier draft added a `cupConfig.ts` default-config placeholder for the future customizer, but nothing consumed it (unlike the camera-preset registry, which *is* exercised today just with only `"hero"` populated). Zero-consumer scaffolding is exactly what [06_CODING_STANDARDS.md](../../../docs/06_CODING_STANDARDS.md)'s "no half-finished code" rule exists to catch — removed during the milestone's engineering review rather than kept for its own sake.
+An earlier draft (Milestone 1) added a `lib/cupConfig.ts` default-config placeholder for a future customizer, but nothing consumed it — removed for having zero consumers, per [06_CODING_STANDARDS.md](../../../docs/06_CODING_STANDARDS.md)'s "no half-finished code" rule. `lib/` returned in Sprint 3.2 with `materialOverridesToVariant.ts`, which has three real callers from the moment it was added (`ProceduralCup`/`Sleeve`/`Lid`) — the difference between speculative and justified scaffolding is exactly "does anything call this today."
 
 `usePrefersReducedMotion` is **not** in this feature's `hooks/` — it lives in `src/hooks/` because `design-system/primitives/GlowCard` needs it too. See [docs/01_ARCHITECTURE.md](../../../docs/01_ARCHITECTURE.md)'s "two+ consumers" rule.
 
+**Sprint 3.2**: `CupAssembly`/`CupScene`/`CupCanvas`/`CupCanvasLoader` all gained optional `partOverrides`/`cupScale`/`route` props, threaded straight through the chain. Every prop is `undefined` for the Hero route (the only caller before this sprint), so its rendering is unchanged — verified via that route's own full e2e suite, including a pixel-diff visual-regression baseline, re-run and passed after this change. `features/customizer/`'s `resolvePartOverrides` is the only real producer of non-empty values; this feature has zero knowledge of what a "customizer" is, it just applies whatever `CupPartProps` it's handed, the same contract every part already implemented.
+
 ## Flow
 
-1. `app/page.tsx` renders `Hero` (Server Component).
-2. `Hero` renders `HeroCopy` (client, animated) and `CupCanvasLoader` (client, dynamic-imports `CupCanvas` with `ssr: false`) — split into two client components specifically because `ssr: false` is only legal inside a Client Component in Next.js 16, and `Hero` itself needs to stay server-rendered.
+1. `app/page.tsx` renders `Hero` (Server Component); `app/customize/page.tsx` renders `features/customizer/`'s `CustomizerExperience`, which uses `CupCanvasLoader` the same way, with real override props.
+2. `Hero`/`CustomizerExperience` render `CupCanvasLoader` (client, dynamic-imports `CupCanvas` with `ssr: false`) — split from any server-rendered parent specifically because `ssr: false` is only legal inside a Client Component in Next.js 16.
 3. `CupCanvas` probes WebGL (`useWebGLSupport`); if unavailable, renders `CupStaticFallback` instead of mounting `<Canvas>`. It's also `tabIndex`-focusable with a keydown handler (`useCupKeyboardControls`) — Left/Right rotates the cup for keyboard-only users, since drag has no keyboard equivalent otherwise.
 4. Inside `<Canvas>`, `CupScene` reads the active theme (`engine/theme`), composes `CameraRig`, lighting, `SceneEnvironment`, `CupAssembly`, and `EffectsStack`.
-5. `CupAssembly` resolves all 8 parts via `resolveCupPart`, renders them in `CUP_PART_ORDER`, and owns idle-float + the interaction-driven rotation from `useCupInteractionState`.
-6. `Hero` also mounts `<DevPanel />` (`engine/devpanel/`) — invisible unless both non-production and toggled with the backtick key, showing live FPS/draw-call stats.
+5. `CupAssembly` resolves all 8 parts via `resolveCupPart`, renders them in `CUP_PART_ORDER`, and owns idle-float + the interaction-driven rotation from `useCupInteractionState` + the overall `scale` (cup size variants, Sprint 3.2).
+6. `Hero` also mounts `<DevPanel />` (`engine/devpanel/`) — invisible unless both non-production and toggled with the backtick key, showing live FPS/draw-call stats. `CustomizerExperience` does not mount `DevPanel`/dev-only probes — those stay Hero-route-only.
 
 ## Responsibilities
 
-- **This feature owns**: the cup's geometry/materials/parts, its interaction state machine, the hero layout and copy, the SSR boundary.
-- **This feature borrows from `engine/`**: camera rig/presets, post-processing, theme-to-lighting mapping, material/texture/environment factories, motion presets, analytics tracking.
-- **This feature does not own**: the Navbar, the design tokens, or anything another feature will need — those live in `engine/`/`design-system/` precisely so this feature doesn't have to re-derive them.
+- **This feature owns**: the cup's geometry/materials/parts, its interaction state machine, the hero layout and copy, the SSR boundary, and (since Sprint 3.2) the generic override-application contract every consumer of this cup rendering pipeline uses.
+- **This feature borrows from `engine/`**: camera rig/presets, post-processing, theme-to-lighting mapping, material/texture/environment factories (including the shared material cache, now with real cache-hit reuse across customizer selections — see `lib/materialOverridesToVariant.ts`), motion presets, analytics tracking.
+- **This feature does not own**: the Navbar, the design tokens, customizer *selection state* (that's `features/customizer/`'s `stores/customizer-store.ts`), or anything another feature will need — those live in `engine/`/`design-system/`/the owning feature precisely so this feature doesn't have to re-derive them.
 
 ## Known simplifications (see [docs/3d-asset-pipeline.md](../../../docs/3d-asset-pipeline.md) for the full list)
 
 - All parts are procedural geometry, not modeled assets — by design, not a shortcut; see [ADR-0002](../../../docs/adr/0002-r3f-architecture.md).
-- Steam is billboarded planes, not a shader/particle simulation.
+- Steam is a real shader (Sprint 2.4), still single-octave noise, not the eventual domain-warped simulation.
 - The logo is an oriented flat plane, not a projected decal.
 
 ## Future extension
 
-- **Milestone 2**: real steam shader/particle sim (`engine/shaders/steam/`, doesn't exist yet), day/night `LightingThemes`.
-- **Milestone 3**: liquid physics — `coffee`/`foam` parts gain surface tilt/ripple driven by `useCupInteractionState`'s drag/rotate states.
-- **Milestone 4**: real Zustand-backed customizer state arrives (a `lib/` or `stores/` addition at that point, not before); `colorway`/`materialOverrides` on `CupPartProps` get real consumers for the first time.
-- **Any milestone**: a real GLB part drops in via one `cupPartRegistry.ts` entry — see the asset pipeline doc's worked example.
+- **Sprint 3.4 (Physics Layer)**: liquid physics — `coffee`/`foam` parts gain surface tilt/ripple driven by `useCupInteractionState`'s drag/rotate states.
+- **Any sprint**: a real GLB part drops in via one `cupPartRegistry.ts` entry — see the asset pipeline doc's worked example.
+- **`colorway`** (`CupPartProps`, typed since Milestone 1) still has no real consumer — Sprint 3.2's customizer uses `materialOverrides` directly instead, a finer-grained mechanism than the coarser named-token `colorway` was designed for. Worth reconsidering whether `colorway` is still the right shape now that a real consumer exists to test it against, or whether it should be retired in favor of what `materialOverrides` already covers.

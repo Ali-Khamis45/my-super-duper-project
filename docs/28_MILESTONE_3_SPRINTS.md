@@ -15,14 +15,14 @@ Documentation follows working code, same as Milestone 2 from Sprint 2.1 onward �
 | Test independently | `npx playwright test e2e/menu.spec.ts` — page load/no-console-errors, search narrows results, unmatched search shows the empty state (not a blank grid), category filter narrows + marks itself active, drink selection opens a real detail dialog |
 | Creative budget | A tightened, grid-specific stagger entrance (measured live: the shared header stagger preset would have taken ~1.1s to settle for 14 items; a local, faster variant settles in ~330ms) — real, measured motion polish, not assumed |
 
-## Sprint 3.2 — Live Cup Customizer
+## Sprint 3.2 — Interactive Cup Designer *(complete — see [reviews/sprint-3.2-review.md](reviews/sprint-3.2-review.md))*
 
 | | |
 |---|---|
-| Builds | Color / Sleeve / Lid / Logo / Materials — live-updating selections wired to the 3D cup via `engine/materials`' existing `getOrCreateMaterial`/`updateMaterialParams` (no new material system — Sprint 2.3 built exactly this for a future consumer) |
-| Depends on | Sprint 3.1 (the `DrinkDetailDialog`'s "Customize this drink" CTA needs a real destination) |
-| Test independently | TBD at sprint start |
-| Creative budget | TBD at sprint start |
+| Builds | `/customize` — real Color/Size/Sleeve/Lid/Logo/Material variants live-updating the 3D cup, preview-before-commit (hover/focus previews, click/Enter commits), Undo/Redo/Reset, session-only preset saving (`stores/customizer-store.ts`, sessionStorage-persisted) · `features/customizer/` (data catalogs, `resolvePartOverrides`, panel components) · `CupAssembly`/`CupScene`/`CupCanvas`/`CupCanvasLoader` extended with optional, backward-compatible `partOverrides`/`cupScale` props · `ProceduralCup`/`Sleeve`/`Lid` re-routed through the existing material cache with a richer key (`materialOverridesToVariant`) instead of always constructing one-off materials · 5 new EventBus events (`customizer:opened`/`-closed`, `variant:selected`, `preset:applied`, `preset:reset`) |
+| Depends on | Sprint 2.3's `materialOverrides`/`colorway` on `CupPartProps` (typed since then specifically for this sprint), Sprint 3.1 (the `DrinkDetailDialog`'s "Customize this drink" CTA needs a real destination) |
+| Test independently | `npx playwright test e2e/customizer.spec.ts` — 10 tests × 3 browsers: load/no-errors, click-to-select, undo/redo/reset, none-variants (sleeve/lid/logo), preset save+load round-trip, keyboard commit, touch tap, reduced motion, 44px touch targets. Hero route's own full e2e suite (including pixel-diff visual regression) re-run and passed 12/12, confirming zero regression |
+| Creative budget | Delivered: preview-before-commit *is* the delight, not a separate flourish — hovering/focusing a swatch shows the cup update live and revert cleanly, the mechanism this sprint's "smooth material blending" and "selection feedback" requirements both actually meant |
 
 ## Sprint 3.3 — Ingredient Builder
 

@@ -21,9 +21,18 @@ import { themeToPresetMap } from "@/engine/theme/LightingThemes";
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 
 import { useMouseParallax } from "../hooks/useMouseParallax";
+import type { CupPartName, CupPartProps } from "../registry/types";
 import { CupAssembly } from "./CupAssembly";
 
-export function CupScene() {
+interface CupSceneProps {
+  /** Sprint 3.2 — see `CupAssembly`'s doc comment; threaded straight through, this component has no opinion on what the overrides mean either. */
+  partOverrides?: Partial<Record<CupPartName, CupPartProps>>;
+  cupScale?: number;
+  /** Only affects the `SceneCompositionRoot` record, not rendering — defaults to `"/"` (the Hero route), matching prior behavior exactly when omitted. */
+  route?: string;
+}
+
+export function CupScene({ partOverrides, cupScale, route = "/" }: CupSceneProps) {
   const theme = useActiveTheme();
   const { environment, lighting: lightingPresetName } = themeToPresetMap[theme];
   const lightingPreset = resolveLightingPreset(lightingPresetName);
@@ -57,7 +66,7 @@ export function CupScene() {
   // (docs/22_MANAGER_INTERFACES.md) rather than left as ad hoc props — a
   // future route's composition root satisfies the same shape.
   const sceneConfig: SceneCompositionRoot = {
-    route: "/",
+    route,
     camera: "hero",
     environment,
     lighting: lightingPresetName,
@@ -92,7 +101,7 @@ export function CupScene() {
         castShadow
         shadow-mapSize={[qualityPolicy.shadowMapSize, qualityPolicy.shadowMapSize]}
       />
-      <CupAssembly reducedMotion={reducedMotion} />
+      <CupAssembly reducedMotion={reducedMotion} partOverrides={partOverrides} scale={cupScale} />
       <EffectsStack effects={sceneConfig.effects} />
       {/* Always mounted, including production — the session it protects
           most is exactly the struggling-device production session. See

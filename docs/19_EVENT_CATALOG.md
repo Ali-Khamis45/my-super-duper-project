@@ -45,7 +45,12 @@ type AppEvent =
   | { name: "webgl:context-restored" }
   | { name: "ai:recommendation-ready"; recommendationId: string }
   | { name: "checkout:started"; cartTotal: number }
-  | { name: "checkout:completed"; orderId: string };
+  | { name: "checkout:completed"; orderId: string }
+  | { name: "customizer:opened" }
+  | { name: "customizer:closed" }
+  | { name: "variant:selected"; category: string; variantId: string; via: "click" | "keyboard" }
+  | { name: "preset:applied"; presetId: string }
+  | { name: "preset:reset" };
 ```
 
 ## Catalog
@@ -86,6 +91,11 @@ type AppEvent =
 | `ai:recommendation-ready` | `{ recommendationId }` | AI Barista feature (Milestone 7), after its data-fetch resolves | Camera Manager (switch to `ai` preset reveal), Customizer store (apply recommended colorway) | Fires once per completed recommendation flow | Consumer failure to apply the recommendation is a feature bug | — |
 | `checkout:started` | `{ cartTotal }` | Commerce feature (Milestone 8) | Analytics | Fires once per checkout flow entry | N/A | — |
 | `checkout:completed` | `{ orderId }` | Commerce feature | Confetti/celebration effect (DOM-layer, per the Effect Manager scope boundary in [22_MANAGER_INTERFACES.md](22_MANAGER_INTERFACES.md)), Analytics | Fires once per completed order | N/A | — |
+| `customizer:opened` | `{}` | **Implemented, Sprint 3.2** — `features/customizer/components/CustomizerExperience.tsx`, on mount | Analytics (future) | Fires exactly once per `/customize` mount | N/A | — |
+| `customizer:closed` | `{}` | **Implemented, Sprint 3.2** — same component, on unmount | Analytics (future) | Fires exactly once per `/customize` unmount, always after the matching `customizer:opened` | N/A | — |
+| `variant:selected` | `{ category, variantId, via }` | **Implemented, Sprint 3.2** — `stores/customizer-store.ts`'s `select()`, on a real committed change (not a hover/focus preview — those never touch this event, see `setPreview`) | Analytics (future) | Fires once per committed selection; a click/keyboard selection of the *already-selected* value is a no-op and does not re-fire | N/A | `via` distinguishes pointer vs. keyboard commit — `event.detail === 0` is the browser's own signal for a keyboard-triggered click, not a heuristic invented for this event |
+| `preset:applied` | `{ presetId }` | **Implemented, Sprint 3.2** — `stores/customizer-store.ts`'s `loadPreset()` | Analytics (future) | Fires once per successful preset load | N/A | — |
+| `preset:reset` | `{}` | **Implemented, Sprint 3.2** — `stores/customizer-store.ts`'s `reset()` | Analytics (future) | Fires once per reset action | N/A | — |
 
 ## What deliberately has no event
 
