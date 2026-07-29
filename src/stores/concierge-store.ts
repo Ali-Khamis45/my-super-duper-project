@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
 import { appEvents } from "@/engine/events";
-import { DEFAULT_TASTE_PROFILE } from "@/features/concierge/data/questions";
+import { DEFAULT_TASTE_PROFILE, resolveCurrentSeason, resolveCurrentTimeOfDay } from "@/features/concierge/data/questions";
 import type { Recommendation, TasteProfile } from "@/features/concierge/types";
 import { resolveDrink } from "@/features/menu/data/drinks";
 
@@ -41,16 +41,29 @@ interface ConciergeStoreState {
    */
   applyRecommendationToCustomizer: (recommendation: Recommendation) => void;
   toggleFavorite: (recommendation: Recommendation) => void;
+  /**
+   * Sets `season`/`timeOfDay` to the real current date's values — always
+   * safe to call client-side (never during SSR/first-paint, see
+   * `onRehydrateStorage` below for the one place this is actually called).
+   * Exported as a real action, not inlined, so it stays independently
+   * testable and callable again later (e.g. a future "refresh" affordance)
+   * without duplicating the `resolveCurrentSeason`/`resolveCurrentTimeOfDay`
+   * call sites.
+   */
+  applyCurrentDateDefaults: () => void;
 }
+
+const CONCIERGE_STORAGE_KEY = "coffeshop-concierge";
 
 export const useConciergeStore = create<ConciergeStoreState>()(
   persist(
     (set, get) => ({
-      // `DEFAULT_TASTE_PROFILE` resolves season/time-of-day from the real
-      // current date at module load — a fresh, real default every session,
-      // not a placeholder; `partialize` below restores whatever the user
-      // actually chose across a same-session reload, same as `customizer-
-      // store.ts`'s own `history`/`selection` invariant.
+      // `DEFAULT_TASTE_PROFILE`'s season/timeOfDay are fixed, not date-
+      // derived — see that constant's own doc comment for why. The real,
+      // current-date value is applied once per fresh session by
+      // `onRehydrateStorage` below, never here at store-creation time
+      // (which runs identically on the server and would reintroduce the
+      // exact hydration mismatch this fix removes).
       tasteProfile: DEFAULT_TASTE_PROFILE,
       lastRecommendation: null,
       favorites: [],
@@ -60,7 +73,32 @@ export const useConciergeStore = create<ConciergeStoreState>()(
         appEvents.emit({ name: "taste-profile:updated", field: String(key) });
       },
 
-      resetTasteProfile: () => set({ tasteProfile: DEFAULT_TASTE_PROFILE }),
+      applyCurrentDateDefaults: () => {
+        const now = new Date();
+        set((state) => ({
+          tasteProfile: {
+            ...state.tasteProfile,
+            season: resolveCurrentSeason(now),
+            timeOfDay: resolveCurrentTimeOfDay(now),
+          },
+        }));
+      },
+
+      // Not `DEFAULT_TASTE_PROFILE` directly — that constant's season/
+      // timeOfDay are the fixed hydration-safe placeholder, not a real
+      // default a user-facing "Reset" should restore. Real current-date
+      // values are always safe here (this only ever runs from a client
+      // event handler, never during SSR).
+      resetTasteProfile: () => {
+        const now = new Date();
+        set({
+          tasteProfile: {
+            ...DEFAULT_TASTE_PROFILE,
+            season: resolveCurrentSeason(now),
+            timeOfDay: resolveCurrentTimeOfDay(now),
+          },
+        });
+      },
 
       setRecommendation: (recommendation) => {
         set({ lastRecommendation: recommendation });
@@ -92,13 +130,27 @@ export const useConciergeStore = create<ConciergeStoreState>()(
       },
     }),
     {
-      name: "coffeshop-concierge",
+      name: CONCIERGE_STORAGE_KEY,
       storage: createJSONStorage(() => sessionStorage),
       partialize: (state) => ({
         tasteProfile: state.tasteProfile,
         lastRecommendation: state.lastRecommendation,
         favorites: state.favorites,
       }),
+      // Runs client-side only, after the hydration-sensitive first render
+      // has already committed — the correct place to apply the one piece
+      // of real, current-date state this store has. `sessionStorage` still
+      // being empty for this key at this exact point is what "a genuinely
+      // fresh session, nothing persisted yet" means: if the user already
+      // has a persisted profile (their own edits, or a previous mount's
+      // real-date apply), leave it alone rather than silently overwriting
+      // an explicit choice — same "restore what the user actually chose"
+      // invariant `partialize` above already documents.
+      onRehydrateStorage: () => (state) => {
+        if (typeof window !== "undefined" && window.sessionStorage.getItem(CONCIERGE_STORAGE_KEY) === null) {
+          state?.applyCurrentDateDefaults();
+        }
+      },
     },
   ),
 );

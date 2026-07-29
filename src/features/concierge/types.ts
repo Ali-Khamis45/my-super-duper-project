@@ -3,9 +3,11 @@ import type { DrinkCategoryId } from "@/features/menu/types";
 /**
  * Sprint 3.5's input signals, exactly as named in the brief. Every field
  * has a sensible, real default (season/time of day default from the
- * actual current date — see `data/questions.ts` — the rest default to a
- * neutral "balanced"/"either" middle so an unanswered questionnaire still
- * produces a real, explainable recommendation rather than an empty state).
+ * actual current date, applied client-side shortly after mount — see
+ * `stores/concierge-store.ts`'s `applyCurrentDateDefaults` — the rest
+ * default to a neutral "balanced"/"either" middle so an unanswered
+ * questionnaire still produces a real, explainable recommendation rather
+ * than an empty state).
  */
 export interface TasteProfile {
   tastePreference: "sweet" | "bitter" | "balanced";

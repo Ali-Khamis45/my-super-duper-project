@@ -83,6 +83,20 @@ export function resolveCurrentTimeOfDay(date: Date): TasteProfile["timeOfDay"] {
   return "evening";
 }
 
+/**
+ * `season`/`timeOfDay` are deliberately fixed, NOT `resolveCurrentSeason
+ * (new Date())`/`resolveCurrentTimeOfDay(new Date())` — this value is what
+ * both the server's SSR render and the client's first (pre-hydration)
+ * render must produce, so they always agree. A `new Date()`-based default
+ * lived here through Sprint 3.5 and caused a real, reproducible hydration
+ * mismatch: the server only evaluates this module once per process (so
+ * its "current" date/time stays frozen at server-start), while the client
+ * evaluates it fresh on every load — once the server process outlived a
+ * single time-of-day boundary, every hydration mismatched. The real,
+ * current-date value is applied once, client-side, after mount, via
+ * `stores/concierge-store.ts`'s `applyCurrentDateDefaults` — see that
+ * store's `onRehydrateStorage` for why only once per session.
+ */
 export const DEFAULT_TASTE_PROFILE: TasteProfile = {
   tastePreference: "balanced",
   sweetness: 3,
@@ -90,8 +104,8 @@ export const DEFAULT_TASTE_PROFILE: TasteProfile = {
   milkPreference: "light",
   temperature: "either",
   caffeineLevel: "regular",
-  season: resolveCurrentSeason(new Date()),
-  timeOfDay: resolveCurrentTimeOfDay(new Date()),
+  season: "spring",
+  timeOfDay: "morning",
 };
 
 export const MIN_SCALE_VALUE = 1;
