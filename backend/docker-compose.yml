@@ -1,0 +1,48 @@
+name: coffeshop-backend
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: coffeshop
+      POSTGRES_USER: coffeshop
+      POSTGRES_PASSWORD: coffeshop
+    ports:
+      - "5540:5432"
+    volumes:
+      - coffeshop_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U coffeshop -d coffeshop"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  mailhog:
+    image: mailhog/mailhog
+    ports:
+      - "1026:1025" # SMTP
+      - "8026:8025" # Web UI
+
+  seq:
+    image: datalust/seq:latest
+    environment:
+      ACCEPT_EULA: "Y"
+      SEQ_FIRSTRUN_NOAUTHENTICATION: "true" # dev only — never set in a shared/production environment
+    ports:
+      - "5342:80" # Web UI + ingestion (HTTP API)
+    volumes:
+      - coffeshop_seq_data:/data
+
+volumes:
+  coffeshop_postgres_data:
+  coffeshop_seq_data:

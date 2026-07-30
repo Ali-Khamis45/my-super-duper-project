@@ -9,6 +9,7 @@ import { ThemeToggle } from "@/design-system/theme/ThemeToggle";
 import { durations } from "@/engine/motion/durations";
 import { easings } from "@/engine/motion/easings";
 import { fadeIn } from "@/engine/motion/presets";
+import { AccountMenu } from "@/features/auth/components/AccountMenu";
 import { CartAnnouncer } from "@/features/cart/components/CartAnnouncer";
 import { CartIcon } from "@/features/cart/components/CartIcon";
 import { ReplayTourButton } from "@/features/onboarding/components/ReplayTourButton";
@@ -46,6 +47,7 @@ export function Navbar() {
                 <CartIcon />
                 <ReplayTourButton />
                 <ThemeToggle />
+                <AccountMenu />
                 <MobileMenu />
               </div>
             </nav>

@@ -1,0 +1,31 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Coffeshop.Application\Coffeshop.Application.csproj" />
+    <ProjectReference Include="..\Coffeshop.Persistence\Coffeshop.Persistence.csproj" />
+    <ProjectReference Include="..\Coffeshop.Identity\Coffeshop.Identity.csproj" />
+    <ProjectReference Include="..\Coffeshop.Infrastructure\Coffeshop.Infrastructure.csproj" />
+    <ProjectReference Include="..\Coffeshop.Domain\Coffeshop.Domain.csproj" />
+    <ProjectReference Include="..\Coffeshop.SharedKernel\Coffeshop.SharedKernel.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Asp.Versioning.Http" Version="10.0.1" />
+    <PackageReference Include="AspNetCore.HealthChecks.NpgSql" Version="9.0.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.10">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.10" />
+    <PackageReference Include="Serilog.Settings.Configuration" Version="10.0.1" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="10.2.3" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>65b4fd16-8d40-46ea-8d0d-e3ad20c6e571</UserSecretsId>
+  </PropertyGroup>
+
+</Project>

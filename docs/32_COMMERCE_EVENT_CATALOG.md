@@ -12,16 +12,19 @@ A domain event raised by an aggregate inside a transaction is **not** published 
 
 This is what makes [29_COMMERCE_ARCHITECTURE_FREEZE.md](29_COMMERCE_ARCHITECTURE_FREEZE.md)'s failure mode table honest: "a handler fails after the triggering transaction committed" is recoverable *because* the outbox row already durably exists independent of any handler succeeding — retrying means re-reading the same row, not reconstructing what should have happened from partial state.
 
+**Implementation status, Sprint 5.1**: the `outbox_messages` table and the publish-side mechanism (`DomainEventsToOutboxInterceptor`, draining every tracked aggregate's pending events into a row in the same `SaveChangesAsync` call) are real and live — every event `User` raises this sprint lands there. The Hangfire polling dispatcher that reads and processes those rows is not yet built — correctly deferred, since a fresh Identity context has no other bounded context to notify yet (Sprint 5.1 has zero real event *consumers*). Outbox rows accumulate, unprocessed, until Sprint 5.3+ builds the dispatcher alongside its first real consumer. This is a known, deliberate gap, not an oversight — [39_COMMERCE_IMPLEMENTATION_READINESS.md](39_COMMERCE_IMPLEMENTATION_READINESS.md) tracks when the dispatcher lands.
+
 ## Event catalog
 
 | Event | Payload | Raised by | Consumers |
 |---|---|---|---|
-| `UserRegistered` | `{ UserId, Email, RegisteredAt }` | `User` (Identity) | Notifications (welcome email), Analytics |
-| `EmailVerified` | `{ UserId, VerifiedAt }` | `User` | Notifications, Analytics |
-| `PasswordResetRequested` | `{ UserId, ResetTokenExpiry }` | `User` | Notifications (reset email — never includes the token itself in the event payload, only in the actual email, and even then as a single-use link — see [36_SECURITY_MODEL.md](36_SECURITY_MODEL.md)) |
-| `PasswordChanged` | `{ UserId, ChangedAt }` | `User` | Notifications (security alert email), Audit |
-| `UserLoggedIn` | `{ UserId, IpAddress, UserAgent, At }` | Identity application service (not the `User` aggregate itself — login is an authentication *event*, not a state mutation of the aggregate) | Audit, Analytics |
-| `RefreshTokenRevoked` | `{ UserId, TokenId, Reason }` | `User` | Audit |
+| `UserRegistered` | `{ UserId, Email, RegisteredAtUtc }` | `User` (Identity) — **implemented, Sprint 5.1** | Notifications (welcome email), Analytics |
+| `EmailVerified` | `{ UserId, VerifiedAtUtc }` | `User` — **implemented, Sprint 5.1** | Notifications, Analytics |
+| `PasswordResetRequested` | `{ UserId, ResetTokenExpiresAtUtc }` | `User` — **implemented, Sprint 5.1** | Notifications (reset email — never includes the token itself in the event payload, only in the actual email, and even then as a single-use link — see [36_SECURITY_MODEL.md](36_SECURITY_MODEL.md)) |
+| `PasswordChanged` | `{ UserId, ChangedAtUtc }` | `User` — **implemented, Sprint 5.1** | Notifications (security alert email), Audit |
+| `UserLoggedIn` | `{ UserId, IpAddress, UserAgent, AtUtc }` | `User` (implementation note: raised from `User.RecordLogin`, not a separate application service as originally sketched — login now also sets `LastLoginAtUtc`, real aggregate state, so the aggregate raising its own event is the simpler, equally-correct path) — **implemented, Sprint 5.1** | Audit, Analytics |
+| `RefreshTokenRevoked` | `{ UserId, TokenId, Reason }` | `User` — **implemented, Sprint 5.1** | Audit |
+| `RefreshTokenReused` | `{ UserId, TokenId }` | `User` — **implemented, Sprint 5.1, additive** (named in docs 33/36 but not in this table's original 26 rows; added here per [37_API_STABILITY_POLICY.md](37_API_STABILITY_POLICY.md)'s extension mechanism 2 — a new row, no existing row changed) | Audit |
 | `ProductCreated` / `ProductPriceChanged` / `ProductDiscontinued` | `{ ProductId, ...}` | `Product` | Catalog cache invalidation, Analytics, Audit |
 | `IngredientCreated` | `{ IngredientId, Name, CompatibleCategories }` | `Ingredient` | Catalog cache invalidation |
 | `CategoryCreated` | `{ CategoryId, Name }` | `Category` | Catalog cache invalidation |

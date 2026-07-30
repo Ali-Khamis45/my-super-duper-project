@@ -30,6 +30,8 @@ public interface IOrderRepository : IRepository<Order, OrderId>
 
 **The rule this enforces**: Application-layer command/query handlers depend only on these interfaces, never on `DbContext` directly. Infrastructure provides the EF Core implementation. This is what makes "swap PostgreSQL for something else" a theoretical possibility without ever needing to exercise it — the same value the frontend's `AIProvider` interface (Sprint 3.9) already proved on a smaller scale.
 
+**Implementation note, Sprint 5.1**: `IUserRepository`/`IRoleRepository` were built as standalone interfaces, not `: IRepository<User, Guid>`/`: IRepository<RoleDefinition, Guid>` extending a shared generic base. `User`'s real query needs (`GetByEmailAsync`, three separate token-hash lookups) don't share a base shape worth factoring out, and a two-aggregate Identity context didn't earn the extra indirection a generic base adds. The pattern above (repository-per-aggregate, additive aggregate-specific methods) is still followed exactly — only the literal generic-interface inheritance is deferred until a third+ aggregate (Sprint 5.2's `Product`/`Ingredient`/`Category`) shows whether the shared shape actually holds.
+
 ## CQRS shapes
 
 ```csharp
@@ -101,7 +103,7 @@ The single most important consistency check in this whole document set: every DT
 | `OrderDto` / `OrderLineDto` | `CompletedOrder` / `CartItem` (`features/cart/types.ts`) | `RecipeSelection` (backend) is the exact JSON shape of `CustomizerSelection` (frontend) — verified field-for-field: `color`, `size`, `sleeve`, `lid`, `logo`, `material`, `ingredients: {ingredientId, quantity}[]` |
 | `RecipeSnapshotDto` | `RecipeSnapshot` (`features/cart/types.ts`) | `id`, `createdAt`, `baseDrinkId`, `baseDrinkCategory`, `baseDrinkName`, `selection`, `unitPrice`, `appliedRecommendationId` — identical field set; the frontend's own doc comment ("the whole entire Recipe Snapshot... a complete, self-contained copy") is now literally the wire contract, not just a local one |
 | `TasteProfileDto` | `TasteProfile` (`features/concierge/types.ts`) | Unchanged — this type never crosses the network in Milestone 5 (the recommendation engine stays client-side, per the RFC); listed here only to confirm no shape drift is introduced by anything adjacent |
-| `UserDto` | *(new — no frontend equivalent exists yet)* | Designed against what `stores/cart-store.ts`'s own doc comment already anticipated: "linking orders to the account for future use" — `UserDto.id` is exactly the `UserId` an `Order`/`RecipeSnapshot` would reference |
+| `UserDto` | *(new — no frontend equivalent exists yet)* | **Implemented, Sprint 5.1**: `{ id, email, fullName, isEmailVerified, roles: string[], permissions: string[] }` — `roles`/`permissions` are flattened from the JWT's own claims (matching what the frontend's `auth-store.ts` needs for UI gating), not a nested `RoleDto[]`. `id` is exactly the `UserId` an `Order`/`RecipeSnapshot` would reference once Sprint 5.3 builds `Order`. |
 
 **The rule this table enforces**: no DTO ships with a field the frontend doesn't already have a place to put, and no existing frontend type needs a shape change to consume its backend counterpart. Where the two genuinely differ (icons, client-only derived values), the difference is named explicitly, not silently assumed compatible.
 
@@ -111,10 +113,16 @@ Not exhaustive (the full surface is the Swagger/OpenAPI document, generated from
 
 | Method | Path | Command/Query | Auth |
 |---|---|---|---|
-| `POST` | `/api/v1/auth/register` | `RegisterUserCommand` | Anonymous |
-| `POST` | `/api/v1/auth/login` | `LoginCommand` | Anonymous |
-| `POST` | `/api/v1/auth/refresh` | `RefreshTokenCommand` | Anonymous (bearer refresh token, not access token) |
-| `POST` | `/api/v1/auth/logout` | `LogoutCommand` | Authenticated |
+| `POST` | `/api/v1/auth/register` | `RegisterUserCommand` | Anonymous — **implemented, Sprint 5.1** |
+| `POST` | `/api/v1/auth/login` | `LoginCommand` | Anonymous — **implemented, Sprint 5.1** |
+| `POST` | `/api/v1/auth/refresh` | `RefreshTokenCommand` | Anonymous (refresh cookie, not access token) — **implemented, Sprint 5.1** |
+| `POST` | `/api/v1/auth/logout` | `LogoutCommand` | Anonymous (cookie identifies the session) — **implemented, Sprint 5.1** |
+| `GET` | `/api/v1/auth/me` | `GetCurrentUserQuery` | Authenticated — **implemented, Sprint 5.1**, additive beyond this table's original sketch |
+| `POST` | `/api/v1/auth/verify-email` | `VerifyEmailCommand` | Anonymous — **implemented, Sprint 5.1**, additive |
+| `POST` | `/api/v1/auth/forgot-password` | `ForgotPasswordCommand` | Anonymous — **implemented, Sprint 5.1**, additive |
+| `POST` | `/api/v1/auth/reset-password` | `ResetPasswordCommand` | Anonymous — **implemented, Sprint 5.1**, additive |
+| `GET` | `/api/v1/auth/sessions` | `GetSessionsQuery` | Authenticated — **implemented, Sprint 5.1**, additive |
+| `POST` | `/api/v1/auth/revoke-session` | `RevokeSessionCommand` | Authenticated — **implemented, Sprint 5.1**, additive |
 | `GET` | `/api/v1/products` | `SearchProductsQuery` | Anonymous |
 | `GET` | `/api/v1/products/{id}` | `GetProductByIdQuery` | Anonymous |
 | `GET` | `/api/v1/ingredients` | `GetIngredientsQuery` | Anonymous |

@@ -1,0 +1,16 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Coffeshop.Api/Coffeshop.Api.csproj" />
+    <Project Path="src/Coffeshop.Application/Coffeshop.Application.csproj" />
+    <Project Path="src/Coffeshop.Domain/Coffeshop.Domain.csproj" />
+    <Project Path="src/Coffeshop.Identity/Coffeshop.Identity.csproj" />
+    <Project Path="src/Coffeshop.Infrastructure/Coffeshop.Infrastructure.csproj" />
+    <Project Path="src/Coffeshop.Persistence/Coffeshop.Persistence.csproj" />
+    <Project Path="src/Coffeshop.SharedKernel/Coffeshop.SharedKernel.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Coffeshop.Application.Tests/Coffeshop.Application.Tests.csproj" />
+    <Project Path="tests/Coffeshop.Domain.Tests/Coffeshop.Domain.Tests.csproj" />
+    <Project Path="tests/Coffeshop.IntegrationTests/Coffeshop.IntegrationTests.csproj" />
+  </Folder>
+</Solution>

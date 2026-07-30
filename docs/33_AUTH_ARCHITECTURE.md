@@ -2,6 +2,15 @@
 
 Phase 0 deliverable. Full design for real authentication — ASP.NET Core Identity + JWT access tokens + rotating refresh tokens + role/policy-based authorization — frozen before Sprint 5.1 begins.
 
+## Implementation status — Sprint 5.1 (shipped)
+
+Built as designed below, with two real, reasoned deviations found during implementation (full detail in [docs/reviews/sprint-5.1-review.md](reviews/sprint-5.1-review.md)):
+
+1. **No separate "Session" entity.** `RefreshToken` alone carries every field a "session" would need (`DeviceName`, `UserAgent`, `CreatedAtUtc`, `LastUsedAtUtc`) — exactly what this document's "Each `RefreshToken` **is** a session" line already specified. A later brief's Phase 2 also asked for a distinct "Session entity"; resolved in favor of this already-frozen design rather than introducing a second, competing concept.
+2. **Reuse-detection is scoped to rotation, not any revocation.** The frozen design said a revoked token presented again triggers a full revoke-all. Implementation revealed this needs narrowing: a token revoked by *rotation* (`ReplacedByTokenId` set — the real theft/reuse signal) triggers revoke-all, per this document's own intent; a token revoked for any other reason (logout, `/revoke-session`, password reset) presented again is just a stale cookie — an ordinary invalid-token failure, not cascaded into revoking every other session. The original design under-specified this distinction; a real bug during manual verification (revoking one session and then refreshing with its cookie killed every other session too) is what surfaced it.
+
+Every endpoint below is live and covered by both an integration test suite (`backend/tests/Coffeshop.IntegrationTests`) and Playwright e2e tests (`e2e/auth.spec.ts`) exercising the real API, not a mock.
+
 ## Token strategy
 
 | Token | Lifetime | Storage (frontend) | Contains |
@@ -118,9 +127,9 @@ Each `RefreshToken` **is** a session, one per device/browser — there is no sep
 
 `UserLoggedIn`, `RefreshTokenReused` (the reuse-detection trigger above), `PasswordChanged`, repeated failed login attempts (rate-limited and logged, not just rate-limited silently) — every one of these is a real `AuditLogEntry`, queryable by an admin, not just a Serilog line lost in aggregate log volume.
 
-## Frontend integration — additive, per the RFC's own rule
+## Frontend integration — additive, per the RFC's own rule (implemented, Sprint 5.1)
 
-A new `lib/auth-client.ts` (in-memory access token + an axios/fetch interceptor handling the silent-refresh flow above) and a new `stores/auth-store.ts` (the current user, if any — `null` for an anonymous visitor, which is the default and fully-supported state, not an error state). No existing store gains an auth dependency it doesn't already need: `cart-store.ts`'s `placeOrder()` action reads the current user (if any) from `auth-store` to decide whether to send `guestContact` or rely on the bearer token — an additive read, not a new required parameter threaded through every existing caller.
+`src/lib/auth-client.ts` (in-memory access token + a `fetch`-based silent-refresh flow, one shared in-flight refresh promise so a burst of near-simultaneous 401s can't race multiple rotations against the same single-use refresh cookie) and `src/stores/auth-store.ts` (the current user, if any — `null`/`"anonymous"` is the default and fully-supported state, not an error state). New routes only: `/login`, `/register`, `/verify-email`, `/forgot-password`, `/reset-password`, plus an additive `AccountMenu` slot in the existing `Navbar` (no existing nav item touched). `cart-store.ts` was not touched this sprint — its `placeOrder()`/`guestContact` integration is real Sprint 5.3 (Ordering Platform) scope, since no `Order` aggregate exists yet; flagged here so this line isn't mistaken for already-done.
 
 ## Related
 

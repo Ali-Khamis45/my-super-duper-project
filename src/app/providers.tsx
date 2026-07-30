@@ -6,6 +6,7 @@ import { useState } from "react";
 
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/design-system/theme/ThemeProvider";
+import { AuthSessionRestorer } from "@/features/auth/components/AuthSessionRestorer";
 import { getQueryClient } from "@/lib/query-client";
 
 // Imported for its module-scope EventBus subscription side effect — see the
@@ -25,6 +26,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <TooltipProvider>
+          <AuthSessionRestorer />
           <SmoothScrollProvider>{children}</SmoothScrollProvider>
         </TooltipProvider>
         <ReactQueryDevtools initialIsOpen={false} />

@@ -1,0 +1,29 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Coffeshop.Domain\Coffeshop.Domain.csproj" />
+    <ProjectReference Include="..\Coffeshop.SharedKernel\Coffeshop.SharedKernel.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="FluentValidation.DependencyInjectionExtensions" Version="12.1.1" />
+    <PackageReference Include="MediatR" Version="14.2.0" />
+    <PackageReference Include="MediatR.Contracts" Version="2.0.1" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.10" />
+    <PackageReference Include="Microsoft.Extensions.Options" Version="10.0.10" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Handlers are internal by convention (docs/41_BACKEND_DEVELOPMENT_STANDARDS.md) — MediatR
+         resolves them via DI regardless of visibility, but unit tests exercising a handler
+         directly (not through ISender) need the same access. -->
+    <InternalsVisibleTo Include="Coffeshop.Application.Tests" />
+  </ItemGroup>
+
+</Project>
