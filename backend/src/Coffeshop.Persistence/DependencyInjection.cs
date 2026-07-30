@@ -1,6 +1,8 @@
+using Coffeshop.Application.Catalog.Interfaces;
 using Coffeshop.Application.Common.Interfaces;
 using Coffeshop.Persistence.Interceptors;
 using Coffeshop.Persistence.Repositories;
+using Coffeshop.Persistence.Search;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -20,7 +22,19 @@ public static class DependencyInjection
 
         services.AddDbContext<CoffeshopDbContext>((provider, options) =>
         {
-            options.UseNpgsql(configuration.GetConnectionString("Postgres"));
+            options.UseNpgsql(configuration.GetConnectionString("Postgres"), npgsql =>
+            {
+                // Explicit, not EF Core's implicit default (Sprint 5.2, Phase 10 review) — every
+                // `Product` fetch loads two owned collections (`Variants`, `Images`) in one JOIN,
+                // which EF Core warns about on every single query ("no QuerySplittingBehavior
+                // configured"). `SingleQuery` is the right call here, not just the default left
+                // unexamined: both collections are small and bounded (a handful of variants,
+                // a handful of images per product — never the unbounded child-table case the
+                // warning is really guarding against), so one round trip stays cheaper than
+                // `SplitQuery`'s N+1-shaped multiple-query alternative. Declaring it explicitly
+                // silences the warning as an informed choice instead of an unaddressed one.
+                npgsql.UseQuerySplittingBehavior(QuerySplittingBehavior.SingleQuery);
+            });
             options.AddInterceptors(
                 provider.GetRequiredService<AuditableEntityInterceptor>(),
                 provider.GetRequiredService<DomainEventsToOutboxInterceptor>());
@@ -28,6 +42,10 @@ public static class DependencyInjection
 
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IRoleRepository, RoleRepository>();
+        services.AddScoped<IProductRepository, ProductRepository>();
+        services.AddScoped<ICategoryRepository, CategoryRepository>();
+        services.AddScoped<IIngredientRepository, IngredientRepository>();
+        services.AddScoped<ISearchService, PostgresSearchService>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
 
         return services;

@@ -3,9 +3,10 @@
 import { useEffect } from "react";
 
 import { appEvents } from "@/engine/events";
+import { useIngredientsQuery } from "@/features/composer/hooks/useIngredientsQuery";
+import { isIngredientCompatible } from "@/features/composer/data/ingredients";
 import { INGREDIENT_DRAG_TYPE } from "@/features/composer/components/IngredientLibrary";
-import { isIngredientCompatible, resolveIngredient } from "@/features/composer/data/ingredients";
-import { resolveDrink } from "@/features/menu/data/drinks";
+import { useMenuQuery } from "@/features/menu/hooks/useMenuQuery";
 import { useCustomizerStore } from "@/stores/customizer-store";
 
 import { CustomizerCanvas } from "./CustomizerCanvas";
@@ -45,23 +46,31 @@ export function CustomizerExperience({ drinkId }: CustomizerExperienceProps) {
   const baseDrinkCategory = useCustomizerStore((state) => state.baseDrinkCategory);
   const addIngredient = useCustomizerStore((state) => state.addIngredient);
 
+  // Sprint 5.2: resolved against the live Catalog API, not the static `data/drinks.ts` array —
+  // a product created through Phase 7's admin UI, not present in that static file, must still be
+  // customizable. `data` is `undefined` until the first successful fetch; `?drink=` resolution
+  // simply no-ops until then, leaving the store's own static default in place (see this
+  // component's own prop doc comment) rather than racing the request.
+  const { data: drinks } = useMenuQuery();
+  const { data: ingredients } = useIngredientsQuery();
+
   useEffect(() => {
     appEvents.emit({ name: "customizer:opened" });
     return () => appEvents.emit({ name: "customizer:closed" });
   }, []);
 
   useEffect(() => {
-    if (!drinkId) return;
-    const drink = resolveDrink(drinkId);
+    if (!drinkId || !drinks) return;
+    const drink = drinks.find((entry) => entry.id === drinkId);
     if (!drink) return;
     setBaseDrink(drink.id, drink.category);
-  }, [drinkId, setBaseDrink]);
+  }, [drinkId, drinks, setBaseDrink]);
 
   function handleDrop(event: React.DragEvent<HTMLDivElement>) {
     const ingredientId = event.dataTransfer.getData(INGREDIENT_DRAG_TYPE);
     if (!ingredientId) return;
     event.preventDefault();
-    const ingredient = resolveIngredient(ingredientId);
+    const ingredient = ingredients?.find((entry) => entry.id === ingredientId);
     if (!ingredient || !isIngredientCompatible(ingredient, baseDrinkCategory)) return;
     addIngredient(ingredientId);
     appEvents.emit({ name: "ingredient:dropped", ingredientId, targetSlot: "cup" });

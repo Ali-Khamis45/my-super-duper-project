@@ -1,6 +1,6 @@
 import { useCallback, useRef, useTransition } from "react";
 
-import { drinks } from "@/features/menu/data/drinks";
+import { useMenuStore } from "@/stores/menu-store";
 import { useConciergeStore } from "@/stores/concierge-store";
 import { useCustomizerStore } from "@/stores/customizer-store";
 
@@ -11,13 +11,15 @@ import { generateRecommendation } from "../lib/recommendationEngine";
  * Cancellation support for abandoned requests." — satisfied with React 19's
  * own `startTransition` (which accepts an async callback and keeps
  * `isPending` true for its whole duration) plus a plain request-id token,
- * not TanStack Query. `recommendationEngine.ts`'s own doc comment explains
- * why: there is no real endpoint here (ADR-0005's "no placeholder
- * queries"), so wrapping a synchronous local computation in a simulated
- * fetch would be dishonest scaffolding, not a real data-fetching need.
- * `useTransition`/a request-id token are React/JS built-ins that satisfy
- * every real requirement (non-blocking, cancellable, a loading flag)
- * without pretending this is remote data.
+ * not TanStack Query. The *scoring computation* itself is still a
+ * synchronous, local, explainable rule engine (`recommendationEngine.ts`'s
+ * own doc comment) — that part was never the I/O-bound piece. What Sprint
+ * 5.2 changed is where the candidate `drinks` list comes from: real menu
+ * data fetched by `useMenuQuery` (called from `ConciergeExperience`) and
+ * mirrored into `useMenuStore`, read here via `.getState()` since this hook
+ * fires from inside `startTransition`, not a render. `useTransition`/a
+ * request-id token still satisfy every real requirement (non-blocking,
+ * cancellable, a loading flag) for the actual synchronous scoring step.
  */
 const THINKING_DELAY_MS = 650;
 
@@ -51,6 +53,7 @@ export function useRecommendation() {
         // abandoned requests."
         if (requestIdRef.current !== requestId) return;
 
+        const drinks = useMenuStore.getState().drinks;
         const recommendation = generateRecommendation(profile, drinks, { currentCategory });
         if (!recommendation) return;
         if (requestIdRef.current !== requestId) return;

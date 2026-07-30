@@ -6,25 +6,28 @@ import { useEffect, useMemo, useState } from "react";
 import { track } from "@/engine/analytics/tracking";
 import { fadeUp, stagger } from "@/engine/motion/presets";
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
+import { useSearchStore } from "@/stores/search-store";
 
-import { drinks } from "../data/drinks";
+import { useMenuQuery } from "../hooks/useMenuQuery";
+import { useSearchQuery } from "../hooks/useSearchQuery";
 import type { Drink, DrinkCategoryId } from "../types";
 import { CategoryFilter } from "./CategoryFilter";
 import { DrinkCard } from "./DrinkCard";
 import { DrinkDetailDialog } from "./DrinkDetailDialog";
 import { MenuEmptyState } from "./MenuEmptyState";
+import { MenuErrorState } from "./MenuErrorState";
+import { MenuLoadingState } from "./MenuLoadingState";
 import { MenuSearch } from "./MenuSearch";
 
 /**
- * The catalog data is static and local (no backend exists — ADR-0005
- * reserves TanStack Query for a real future endpoint, "no placeholder
- * queries"), so filtering is synchronous, client-side `useMemo` derivation,
- * not an async search request.
+ * Sprint 5.2: the catalog is now real, live data (`useMenuQuery`/`useSearchQuery`,
+ * `/api/v1/menu` and `/api/v1/search`) — category filtering stays a synchronous, client-side
+ * `useMemo` derivation (the fetched list is small and already loaded; no reason to round-trip
+ * for it), but the *text query* now hits the real ranked full-text search this sprint's Phase 5
+ * built, rather than a local substring match.
  */
-function matchesQuery(drink: Drink, query: string): boolean {
-  if (!query) return true;
-  const haystack = `${drink.name} ${drink.tagline} ${drink.tags.join(" ")}`.toLowerCase();
-  return haystack.includes(query.toLowerCase());
+function matchesCategory(drink: Drink, category: DrinkCategoryId | "all"): boolean {
+  return category === "all" || drink.category === category;
 }
 
 /**
@@ -44,14 +47,22 @@ const catalogStagger: Variants = {
 
 export function MenuExperience() {
   const reducedMotion = usePrefersReducedMotion();
-  const [query, setQuery] = useState("");
+  const query = useSearchStore((state) => state.query);
+  const setQuery = useSearchStore((state) => state.setQuery);
   const [category, setCategory] = useState<DrinkCategoryId | "all">("all");
   const [selectedDrink, setSelectedDrink] = useState<Drink | null>(null);
 
-  const filtered = useMemo(
-    () => drinks.filter((drink) => (category === "all" || drink.category === category) && matchesQuery(drink, query)),
-    [query, category],
-  );
+  const isSearching = query.trim().length > 0;
+  const menuQuery = useMenuQuery();
+  const searchQuery = useSearchQuery(query);
+
+  const isLoading = isSearching ? searchQuery.isLoading : menuQuery.isLoading;
+  const isError = isSearching ? searchQuery.isError : menuQuery.isError;
+
+  const filtered = useMemo(() => {
+    const sourceList = isSearching ? (searchQuery.data ?? []) : (menuQuery.data ?? []);
+    return sourceList.filter((drink) => matchesCategory(drink, category));
+  }, [isSearching, searchQuery.data, menuQuery.data, category]);
 
   // Debounced, not per-keystroke — "real, minimal event surface"
   // (docs/engine/analytics/events.ts) means a settled search, not a flood
@@ -103,7 +114,11 @@ export function MenuExperience() {
       </div>
 
       <div className="mt-8">
-        {filtered.length === 0 ? (
+        {isError ? (
+          <MenuErrorState onRetry={() => (isSearching ? searchQuery.refetch() : menuQuery.refetch())} />
+        ) : isLoading ? (
+          <MenuLoadingState />
+        ) : filtered.length === 0 ? (
           <MenuEmptyState query={query} />
         ) : (
           <motion.div

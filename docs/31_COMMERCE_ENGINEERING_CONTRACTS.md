@@ -32,6 +32,8 @@ public interface IOrderRepository : IRepository<Order, OrderId>
 
 **Implementation note, Sprint 5.1**: `IUserRepository`/`IRoleRepository` were built as standalone interfaces, not `: IRepository<User, Guid>`/`: IRepository<RoleDefinition, Guid>` extending a shared generic base. `User`'s real query needs (`GetByEmailAsync`, three separate token-hash lookups) don't share a base shape worth factoring out, and a two-aggregate Identity context didn't earn the extra indirection a generic base adds. The pattern above (repository-per-aggregate, additive aggregate-specific methods) is still followed exactly — only the literal generic-interface inheritance is deferred until a third+ aggregate (Sprint 5.2's `Product`/`Ingredient`/`Category`) shows whether the shared shape actually holds.
 
+**Implementation note, Sprint 5.2**: it does. `IProductRepository`/`ICategoryRepository`/`IIngredientRepository` all extend `IRepository<TAggregate, Guid>` (`Coffeshop.Domain.Common`) for real, adding only genuinely aggregate-specific methods beyond it (`GetBySkuAsync`, `GetPagedAsync`, `GetFeaturedAsync`, `Remove` on `IProductRepository`; `GetByCodeAsync`/`ExistsByCodeAsync` on both `ICategoryRepository` and `IIngredientRepository`; `GetCategoriesAsync`/`GetCategoryCodesAsync` — the latter two additive mid-sprint, once the admin ingredient editor turned out to need real `IngredientCategory` Guids that nothing previously exposed).
+
 ## CQRS shapes
 
 ```csharp
@@ -78,6 +80,8 @@ public record SearchProductsQuery(
 ) : IRequest<PagedResult<ProductSummaryDto>>;
 ```
 
+**Implementation note, Sprint 5.2**: the real `SearchProductsQuery` is `SearchProductsQuery(string Query, PageRequest Page) : IQuery<PagedResult<ProductSummaryDto>>` — no `CategoryId`/`MinPrice`/`MaxPrice`/`SortBy` filters. Ranked full-text search (`ISearchService`, PostgreSQL `tsvector`/GIN) and structured filtering turned out to be genuinely different concerns once both existed for real: `GetProductsQuery`'s `ProductFilter` (category/season/temperature/availability/status, plus an additive `SearchTerm` for the admin product list's own plain-`ILIKE` name search, which deliberately never routes through `ISearchService` — that ranked path only ever returns `Published`/available products, which would silently hide Draft/Archived rows from an admin search) is the filtering path; `SearchProductsQuery` is the ranking path. Sketching them as one combined query undersold how differently they're actually implemented.
+
 ## REST API conventions — frozen, apply to every endpoint
 
 | Concern | Convention |
@@ -98,8 +102,8 @@ The single most important consistency check in this whole document set: every DT
 
 | Backend DTO | Frontend type it targets | Verified against |
 |---|---|---|
-| `ProductDto` | `Drink` (`features/menu/types.ts`) | `id`, `name`, `category`, `price`, `tagline`, `description`, `tags` — every field name matches exactly, so `resolveDrink()`'s callers need zero shape changes, only a data-source swap |
-| `IngredientDto` | `Ingredient` (`features/composer/types.ts`) | `id`, `name`, `category`, `priceModifier`, `compatibleWith`, `color`, `shape` — `icon` (a Lucide component reference) stays frontend-only, never serialized; the DTO omits it, the frontend maps `id` → icon via its own existing lookup, unchanged |
+| `ProductDto` / `ProductSummaryDto` | `Drink` (`features/menu/types.ts`) | **Implemented, Sprint 5.2, with one real correction from this table's original sketch**: `name`, `category`, `price`, `tagline`, `description`, `tags` match exactly, but `id` is the real database `Guid` (`ProductDto.Id`), *not* `Drink.id` directly — `resolveDrink()`'s callers need `Drink.id` to stay the stable kebab-case string every existing test/store already keys on (`cart-store`, `customizer-store`, `recommendationEngine`), which a Guid can't be. The frontend derives `Drink.id` client-side (`slugify(dto.name)`, verified byte-identical to every one of the 14 real seeded products' original static id) and carries the real Guid separately as `Drink.productId` — additive, optional, `undefined` for `data/drinks.ts`'s own static entries. `ProductSummaryDto` additionally carries `description` despite otherwise being the lean list shape, specifically because `DrinkDetailDialog` needs it for every item the `/menu` grid already renders. |
+| `IngredientDto` | `Ingredient` (`features/composer/types.ts`) | **Implemented, Sprint 5.2**: `id`, `name`, `category`, `priceModifier`, `compatibleWith`, `color`, `shape` match exactly — `Ingredient.id`/`category` were already stable string codes on the frontend (unlike `Product`), so no id-mapping trick was needed here the way `ProductDto` needed one. `icon` stays frontend-only, never serialized, exactly as sketched. `sortOrder` is additive beyond the original sketch — `UpdateIngredientCommand` requires it on every call, and nothing exposed the current value until the admin ingredient editor needed to round-trip it without silently resetting it. |
 | `OrderDto` / `OrderLineDto` | `CompletedOrder` / `CartItem` (`features/cart/types.ts`) | `RecipeSelection` (backend) is the exact JSON shape of `CustomizerSelection` (frontend) — verified field-for-field: `color`, `size`, `sleeve`, `lid`, `logo`, `material`, `ingredients: {ingredientId, quantity}[]` |
 | `RecipeSnapshotDto` | `RecipeSnapshot` (`features/cart/types.ts`) | `id`, `createdAt`, `baseDrinkId`, `baseDrinkCategory`, `baseDrinkName`, `selection`, `unitPrice`, `appliedRecommendationId` — identical field set; the frontend's own doc comment ("the whole entire Recipe Snapshot... a complete, self-contained copy") is now literally the wire contract, not just a local one |
 | `TasteProfileDto` | `TasteProfile` (`features/concierge/types.ts`) | Unchanged — this type never crosses the network in Milestone 5 (the recommendation engine stays client-side, per the RFC); listed here only to confirm no shape drift is introduced by anything adjacent |
@@ -123,9 +127,25 @@ Not exhaustive (the full surface is the Swagger/OpenAPI document, generated from
 | `POST` | `/api/v1/auth/reset-password` | `ResetPasswordCommand` | Anonymous — **implemented, Sprint 5.1**, additive |
 | `GET` | `/api/v1/auth/sessions` | `GetSessionsQuery` | Authenticated — **implemented, Sprint 5.1**, additive |
 | `POST` | `/api/v1/auth/revoke-session` | `RevokeSessionCommand` | Authenticated — **implemented, Sprint 5.1**, additive |
-| `GET` | `/api/v1/products` | `SearchProductsQuery` | Anonymous |
-| `GET` | `/api/v1/products/{id}` | `GetProductByIdQuery` | Anonymous |
-| `GET` | `/api/v1/ingredients` | `GetIngredientsQuery` | Anonymous |
+| `GET` | `/api/v1/products` | `GetProductsQuery` | Anonymous — **implemented, Sprint 5.2** (admin-facing paged listing, every status, not just Published) |
+| `GET` | `/api/v1/products/{id}` | `GetProductQuery` | Anonymous — **implemented, Sprint 5.2** |
+| `POST` | `/api/v1/products` | `CreateProductCommand` | `Permission.ManageProducts` — **implemented, Sprint 5.2** |
+| `PUT` | `/api/v1/products/{id}` | `UpdateProductCommand` | `Permission.ManageProducts` — **implemented, Sprint 5.2** |
+| `PUT` | `/api/v1/products/{id}/pricing` | `UpdatePricingCommand` | `Permission.ManageProducts` — **implemented, Sprint 5.2** |
+| `PUT` | `/api/v1/products/{id}/category` | `AssignCategoryCommand` | `Permission.ManageProducts` — **implemented, Sprint 5.2** |
+| `PUT` | `/api/v1/products/{id}/availability` | `UpdateAvailabilityCommand` | `Permission.ManageProducts` — **implemented, Sprint 5.2** |
+| `PUT` | `/api/v1/products/{id}/featured` | `SetFeaturedCommand` | `Permission.ManageProducts` — **implemented, Sprint 5.2** |
+| `POST` | `/api/v1/products/{id}/publish` \| `/archive` \| `/restore` | `PublishProductCommand` \| `ArchiveProductCommand` \| `RestoreProductCommand` | `Permission.ManageProducts` — **implemented, Sprint 5.2**; `Publish`/`Restore` are additive beyond this table's original sketch (a Draft→Published→Archived⇄Draft lifecycle needs explicit transitions the original sketch's plain `ProductDto` CRUD didn't name) |
+| `DELETE` | `/api/v1/products/{id}` | `DeleteProductCommand` | `Permission.ManageProducts` — **implemented, Sprint 5.2**; a real hard delete, restricted to still-`Draft` products |
+| `POST` \| `DELETE` | `/api/v1/products/{id}/images` \| `/images/{imageId}` | `UploadImageCommand` \| `RemoveImageCommand` | `Permission.ManageProducts` — **implemented, Sprint 5.2**; by URL, not a file upload — no blob/object storage exists in this architecture (see [29_COMMERCE_ARCHITECTURE_FREEZE.md](29_COMMERCE_ARCHITECTURE_FREEZE.md)) |
+| `GET` | `/api/v1/menu` | `GetMenuQuery` | Anonymous — **implemented, Sprint 5.2**; Published+available only, unpaginated (matches the frontend's own real "load the whole catalog once" usage) |
+| `GET` | `/api/v1/featured` | `GetFeaturedQuery` | Anonymous — **implemented, Sprint 5.2** |
+| `GET` | `/api/v1/categories` | `GetCategoriesQuery` | Anonymous — **implemented, Sprint 5.2** |
+| `POST` \| `PUT` | `/api/v1/categories` \| `/{id}` | `CreateCategoryCommand` \| `UpdateCategoryCommand` | `Permission.ManageProducts` — **implemented, Sprint 5.2** |
+| `GET` | `/api/v1/ingredients` | `GetIngredientsQuery` | Anonymous — **implemented, Sprint 5.2** |
+| `POST` \| `PUT` | `/api/v1/ingredients` \| `/{code}` | `CreateIngredientCommand` \| `UpdateIngredientCommand` | `Permission.ManageProducts` — **implemented, Sprint 5.2** |
+| `GET` | `/api/v1/ingredient-categories` | `GetIngredientCategoriesQuery` | Anonymous — **implemented, Sprint 5.2, additive**; not in this table's original sketch — `CreateIngredientCommand.IngredientCategoryId` needs a real Guid the admin ingredient editor otherwise had no way to discover |
+| `GET` | `/api/v1/search` \| `/search/autocomplete` | `SearchProductsQuery` \| `AutocompleteQuery` | Anonymous — **implemented, Sprint 5.2** |
 | `POST` | `/api/v1/carts/{cartId}/items` | `AddCartItemCommand` | Anonymous or Authenticated (cart id is a bearer-of-its-own-identity for anonymous carts — see [33_AUTH_ARCHITECTURE.md](33_AUTH_ARCHITECTURE.md)'s guest-session note) |
 | `POST` | `/api/v1/orders` | `PlaceOrderCommand` | Anonymous or Authenticated |
 | `GET` | `/api/v1/orders/me` | `GetMyOrdersQuery` | Authenticated |
@@ -139,7 +159,7 @@ Not exhaustive (the full surface is the Swagger/OpenAPI document, generated from
 
 ## Seed data strategy
 
-Every static frontend data file (`features/menu/data/drinks.ts`, `features/composer/data/ingredients.ts`) becomes an EF Core seed migration — the exact same 14 drinks and 9 ingredients, imported once, so Sprint 5.2's Product Platform launches with real, familiar data rather than an empty catalog. `features/storytelling/data/chapters.ts` and `features/onboarding/data/steps.ts` seed the CMS `ContentBlock` table the same way — the frontend's existing hardcoded copy becomes the *initial* CMS content, editable from there forward, never re-typed from scratch.
+Every static frontend data file (`features/menu/data/drinks.ts`, `features/composer/data/ingredients.ts`) becomes an EF Core seed migration — the exact same 14 drinks and 9 ingredients, imported once, so Sprint 5.2's Product Platform launches with real, familiar data rather than an empty catalog. **Implemented, Sprint 5.2**: `Coffeshop.Persistence.Seed.CatalogSeeder` — every category/ingredient/product traced verbatim from the frontend's static files (`ProductVariant` price adjustments seeded at real $0.00, matching actual current frontend behavior; `ProductImage` seeded with zero rows, since no real images exist; `NutritionFacts` caffeine values from genuinely well-known typical figures, calories/sugar left `null` rather than fabricated). `features/storytelling/data/chapters.ts` and `features/onboarding/data/steps.ts` seeding the CMS `ContentBlock` table remains a Sprint 5.4+ concern, not yet implemented.
 
 ## Related
 

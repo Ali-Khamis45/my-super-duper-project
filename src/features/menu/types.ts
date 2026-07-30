@@ -25,4 +25,12 @@ export interface Drink {
   /** A little more detail, shown only in the detail dialog. */
   description: string;
   tags: string[];
+  /**
+   * The real backend `Product.Id` (Sprint 5.2) — present for drinks sourced from the live
+   * Catalog API (`mapProductToDrink.ts`), `undefined` for `data/drinks.ts`'s static entries.
+   * Optional, not required, so that file — still real, still used as-is by existing tests and by
+   * every lookup that only needs an already-known `id` — never had to be retrofitted with a Guid
+   * it has no way to know.
+   */
+  productId?: string;
 }

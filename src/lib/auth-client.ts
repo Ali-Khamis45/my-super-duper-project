@@ -112,7 +112,8 @@ export async function restoreSession(): Promise<UserDto | null> {
   }
 }
 
-async function authorizedFetch(path: string, init: RequestInit = {}, isRetry = false): Promise<Response> {
+/** Exported for reuse by other authenticated clients (e.g. `product-client.ts`'s admin mutations) — same in-memory token + single-flight refresh-on-401 behavior, not a second copy of it. */
+export async function authorizedFetch(path: string, init: RequestInit = {}, isRetry = false): Promise<Response> {
   // A 60s safety margin — never send a request with a token that's about to expire mid-flight.
   if (!accessToken || Date.now() >= accessTokenExpiresAtUtc - 60_000) {
     await refreshAccessToken();

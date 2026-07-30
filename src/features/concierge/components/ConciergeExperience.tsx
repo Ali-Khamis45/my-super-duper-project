@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useRef } from "react";
 
 import { fadeIn, fadeUp } from "@/engine/motion/presets";
+import { useMenuQuery } from "@/features/menu/hooks/useMenuQuery";
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 import { useConciergeStore } from "@/stores/concierge-store";
 
@@ -27,6 +28,10 @@ export function ConciergeExperience() {
   const { isPending } = useRecommendation();
   const resultRef = useRef<HTMLDivElement>(null);
   const reducedMotion = usePrefersReducedMotion();
+
+  // Populates `useMenuStore` (read imperatively by `useRecommendation.ts`'s
+  // `startTransition` callback) before the questionnaire can be submitted.
+  useMenuQuery();
 
   useEffect(() => {
     if (lastRecommendation) resultRef.current?.focus();

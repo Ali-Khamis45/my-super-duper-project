@@ -3,8 +3,9 @@
 import { Coffee } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { useCategoryStore } from "@/stores/category-store";
 
-import { categories } from "../data/categories";
+import { useCategoriesQuery } from "../hooks/useCategoriesQuery";
 import type { DrinkCategoryId } from "../types";
 
 interface CategoryFilterProps {
@@ -21,6 +22,12 @@ interface CategoryFilterProps {
  * `outline`/`secondary` variants still provide the visual state.
  */
 export function CategoryFilter({ active, onChange }: CategoryFilterProps) {
+  // Fetches (and mirrors into `useCategoryStore`) on its own — the one real consumer of the
+  // live category list, so there's no value in a parent component fetching just to hand this
+  // down as another prop.
+  useCategoriesQuery();
+  const categories = useCategoryStore((state) => state.categories);
+
   return (
     <div role="radiogroup" aria-label="Filter by category" className="flex flex-wrap gap-2">
       <Button

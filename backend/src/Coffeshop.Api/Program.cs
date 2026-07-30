@@ -1,5 +1,6 @@
 using Coffeshop.Api;
 using Coffeshop.Api.Endpoints.Auth;
+using Coffeshop.Api.Endpoints.Catalog;
 using Coffeshop.Infrastructure.Logging;
 using Coffeshop.Persistence;
 using Coffeshop.Persistence.Seed;
@@ -63,6 +64,7 @@ if (app.Environment.IsDevelopment())
         var context = scope.ServiceProvider.GetRequiredService<CoffeshopDbContext>();
         await context.Database.MigrateAsync();
         await IdentitySeeder.SeedAsync(context);
+        await CatalogSeeder.SeedAsync(context);
     }
 
     app.UseSwagger();
@@ -88,6 +90,10 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
 });
 
 app.MapAuthEndpoints();
+app.MapProductEndpoints();
+app.MapCategoryEndpoints();
+app.MapIngredientEndpoints();
+app.MapSearchEndpoints();
 
 app.Run();
 

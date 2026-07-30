@@ -1,7 +1,9 @@
+using Coffeshop.Domain.Catalog.Exceptions;
 using Coffeshop.Domain.Identity.Exceptions;
 using FluentValidation;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace Coffeshop.Api.ErrorHandling;
 
@@ -56,6 +58,25 @@ public sealed class GlobalExceptionHandler(ILogger<GlobalExceptionHandler> logge
         InvalidOrExpiredTokenException => (StatusCodes.Status401Unauthorized, exception.Message, "invalid-or-expired-token"),
         RefreshTokenReuseDetectedException => (StatusCodes.Status401Unauthorized, exception.Message, "refresh-token-reuse-detected"),
         InvalidEmailException or InvalidFullNameException => (StatusCodes.Status400BadRequest, exception.Message, "invalid-input"),
+
+        // Catalog (Sprint 5.2) — same discipline: a specific domain exception maps to a
+        // specific status/type, never a generic 500 for a well-understood business rule.
+        ProductNotFoundException or CategoryNotFoundException or IngredientNotFoundException or IngredientCategoryNotFoundException
+            => (StatusCodes.Status404NotFound, exception.Message, "not-found"),
+        SkuAlreadyExistsException or CategoryAlreadyExistsException or IngredientAlreadyExistsException
+            => (StatusCodes.Status409Conflict, exception.Message, "already-exists"),
+        ProductArchivedException or InvalidProductStatusTransitionException
+            => (StatusCodes.Status409Conflict, exception.Message, "invalid-status-transition"),
+        InvalidMoneyException or InvalidPriceException or InvalidSkuException or InvalidProductTagException or InvalidIngredientCompatibilityException
+            => (StatusCodes.Status400BadRequest, exception.Message, "invalid-input"),
+
+        // A genuine concurrent-write conflict (two admins editing the same product at once) —
+        // EF Core's own xmin-backed optimistic concurrency check throwing this is the real
+        // protection; mapping it to 409 here (previously falling through to an unmapped 500)
+        // is what makes that protection visible as a real, correct API response instead of a
+        // server error, per docs/31_COMMERCE_ENGINEERING_CONTRACTS.md's concurrency convention.
+        DbUpdateConcurrencyException => (StatusCodes.Status409Conflict, "This record was modified by someone else. Reload and try again.", "concurrency-conflict"),
+
         _ => (StatusCodes.Status500InternalServerError, "An unexpected error occurred.", "internal-server-error"),
     };
 }

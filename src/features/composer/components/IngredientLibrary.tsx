@@ -2,11 +2,13 @@
 
 import { Check } from "lucide-react";
 
+import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { useCustomizerStore } from "@/stores/customizer-store";
 
-import { INGREDIENTS, isIngredientCompatible } from "../data/ingredients";
+import { isIngredientCompatible } from "../data/ingredients";
+import { useIngredientsQuery } from "../hooks/useIngredientsQuery";
 
 /** The native HTML5 drag-and-drop MIME type the drop zone (`CustomizerExperience`'s canvas wrapper) reads. */
 export const INGREDIENT_DRAG_TYPE = "application/x-coffeshop-ingredient";
@@ -30,12 +32,26 @@ export function IngredientLibrary() {
   const preview = useCustomizerStore((state) => state.preview);
   const addIngredient = useCustomizerStore((state) => state.addIngredient);
   const setPreview = useCustomizerStore((state) => state.setPreview);
+  const { data: ingredients, isLoading } = useIngredientsQuery();
+
+  if (isLoading || !ingredients) {
+    return (
+      <fieldset className="flex flex-col gap-2">
+        <legend className="text-foreground text-sm font-medium">Ingredients</legend>
+        <div className="grid grid-cols-3 gap-2" aria-busy="true" aria-label="Loading ingredients">
+          {Array.from({ length: 9 }, (_, index) => (
+            <Skeleton key={index} className="h-16 rounded-lg" />
+          ))}
+        </div>
+      </fieldset>
+    );
+  }
 
   return (
     <fieldset className="flex flex-col gap-2">
       <legend className="text-foreground text-sm font-medium">Ingredients</legend>
       <div className="grid grid-cols-3 gap-2" role="group" aria-label="Ingredient library">
-        {INGREDIENTS.map((ingredient) => {
+        {ingredients.map((ingredient) => {
           const Icon = ingredient.icon;
           const compatible = isIngredientCompatible(ingredient, baseDrinkCategory);
           const alreadyAdded = selection.ingredients.some((entry) => entry.ingredientId === ingredient.id);

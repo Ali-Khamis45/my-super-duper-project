@@ -57,6 +57,8 @@ Together they mean a frontend store's `placeOrder()` action signature and the wi
 
 Every future milestone's Architecture Freeze document performs the same cross-check [26_API_STABILITY.md](26_API_STABILITY.md) already performs for frontend interfaces: every endpoint/DTO a new sprint plans to consume is checked against this policy's frozen set, and any genuinely necessary breaking change is called out explicitly, in writing, with mechanism 5 (a new version) as its resolution — never a silent in-place edit discovered later by a failing frontend build.
 
+**Compliance record, Sprint 5.2**: zero Sprint 5.1 contracts touched — every Catalog endpoint/DTO/query-param is new surface, not a modification of anything Identity already shipped. Real usage of the extension mechanisms above, not just the theory: `ProductFilter.SearchTerm` (mechanism 3, an additive optional query param, added mid-sprint once the admin product list turned out to need name search); `GET /api/v1/ingredient-categories` (mechanism 2, a new endpoint, added mid-sprint once `CreateIngredientCommand.IngredientCategoryId` turned out to be otherwise undiscoverable); `ProductSummaryDto.Description` and `IngredientDto.SortOrder` (mechanism 1, additive fields, added once real frontend/admin consumers needed values the original DTO sketch hadn't included). No mechanism 5 (new API version) was needed this sprint.
+
 ## Related
 
 [17_ZERO_REWRITE_POLICY.md](17_ZERO_REWRITE_POLICY.md) · [31_COMMERCE_ENGINEERING_CONTRACTS.md](31_COMMERCE_ENGINEERING_CONTRACTS.md) · [32_COMMERCE_EVENT_CATALOG.md](32_COMMERCE_EVENT_CATALOG.md) · [26_API_STABILITY.md](26_API_STABILITY.md) · [milestone-5-commerce-rfc.md](milestone-5-commerce-rfc.md)

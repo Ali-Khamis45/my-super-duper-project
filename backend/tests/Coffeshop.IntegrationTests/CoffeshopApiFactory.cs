@@ -1,3 +1,4 @@
+using Coffeshop.Domain.Identity;
 using Coffeshop.Persistence;
 using Coffeshop.Persistence.Seed;
 using Microsoft.AspNetCore.Hosting;
@@ -50,6 +51,18 @@ public sealed class CoffeshopApiFactory : WebApplicationFactory<Program>, IAsync
         var context = scope.ServiceProvider.GetRequiredService<CoffeshopDbContext>();
         await context.Database.MigrateAsync();
         await IdentitySeeder.SeedAsync(context);
+        await CatalogSeeder.SeedAsync(context);
+    }
+
+    /// <summary>Test-only helper — grants the Admin role directly, mirroring the manual `psql` role-promotion used during this sprint's live verification, since no self-service "become admin" endpoint exists (correctly — that would be a real security hole).</summary>
+    public async Task PromoteToAdminAsync(Guid userId)
+    {
+        using var scope = Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<CoffeshopDbContext>();
+        var adminRole = await context.Roles.FirstAsync(r => r.Name == RoleNames.Admin);
+        var user = await context.Users.FirstAsync(u => u.Id == userId);
+        user.AssignRole(adminRole.Id);
+        await context.SaveChangesAsync();
     }
 
     public new async Task DisposeAsync()
