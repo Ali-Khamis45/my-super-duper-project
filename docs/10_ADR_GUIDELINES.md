@@ -34,3 +34,9 @@ Sequential, zero-padded to 4 digits, never reused even if an ADR is later supers
 Design-phase ADRs, written before implementation — see [milestone-2-architecture-rfc.md](milestone-2-architecture-rfc.md).
 
 [0006-scene-management-strategy.md](adr/0006-scene-management-strategy.md) · [0007-animation-orchestration.md](adr/0007-animation-orchestration.md) · [0008-shader-authoring-approach.md](adr/0008-shader-authoring-approach.md) · [0009-asset-compression-pipeline.md](adr/0009-asset-compression-pipeline.md)
+
+## Milestone 5 ADRs
+
+Design-phase ADRs, written before implementation — see [milestone-5-commerce-rfc.md](milestone-5-commerce-rfc.md) and [29_COMMERCE_ARCHITECTURE_FREEZE.md](29_COMMERCE_ARCHITECTURE_FREEZE.md).
+
+[0010-backend-clean-architecture-ddd-cqrs.md](adr/0010-backend-clean-architecture-ddd-cqrs.md) · [0011-postgresql-as-primary-datastore.md](adr/0011-postgresql-as-primary-datastore.md) · [0012-jwt-rotating-refresh-tokens.md](adr/0012-jwt-rotating-refresh-tokens.md) · [0013-payment-gateway-abstraction.md](adr/0013-payment-gateway-abstraction.md) · [0014-redis-caching-strategy.md](adr/0014-redis-caching-strategy.md) · [0015-frontend-backend-integration-strategy.md](adr/0015-frontend-backend-integration-strategy.md)

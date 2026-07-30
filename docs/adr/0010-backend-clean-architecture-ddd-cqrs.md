@@ -1,0 +1,15 @@
+# ADR-0010 — Clean Architecture + DDD + CQRS (scoped, no event sourcing) for the commerce backend
+
+**Status**: Accepted
+
+## Context
+
+Milestone 5 introduces a real backend for the first time in this project's history — until now, every "backend" concern (menu data, ingredient data, order history) has been a frontend mock or session-local store. The domain is genuinely non-trivial (orders, payments, inventory, coupons, multi-role auth) and will be extended over at least six more sprints (5.1-5.6) and, per the user's own explicit instruction, over an unbounded number of future milestones without ever breaking what ships in Milestone 5 ([37_API_STABILITY_POLICY.md](../37_API_STABILITY_POLICY.md)). The alternative considered was a simpler transaction-script/anemic-model approach (services operating directly on EF Core entities with logic scattered across handlers) — faster to write initially, but this project's own precedent (the frontend's registry/manager architecture, [17_ZERO_REWRITE_POLICY.md](../17_ZERO_REWRITE_POLICY.md)) is that upfront architectural discipline is what has let five milestones ship without a rewrite. A second alternative, full event sourcing with a dedicated read model, was considered and rejected as premature for this project's real current scale.
+
+## Decision
+
+Clean Architecture (Domain/Application/Infrastructure/Presentation as separate projects, enforced by project references — a Domain project cannot compile against Infrastructure) with Domain-Driven Design (aggregates, entities, value objects, domain events, the "one aggregate per transaction" rule — [30_COMMERCE_DDD_MODEL.md](../30_COMMERCE_DDD_MODEL.md)) and CQRS via MediatR, explicitly scoped down: commands and queries are separate `IRequest` types with separate handlers, but read and write share the same PostgreSQL database — no event sourcing, no separate read-model store, at least for Milestone 5.
+
+## Consequences
+
+Gains: domain invariants live in one place (the aggregate), not scattered across handlers; the "one aggregate per transaction" rule makes cross-context coordination (via domain events + the outbox, [32_COMMERCE_EVENT_CATALOG.md](../32_COMMERCE_EVENT_CATALOG.md)) an explicit, reviewable pattern rather than an ad hoc decision made differently in each handler; Clean Architecture's compile-time layer enforcement catches a dependency-direction violation immediately, the same value this project's frontend gets from its registry pattern. Costs, named honestly: more upfront ceremony than a transaction-script approach for genuinely simple CRUD (e.g. a `Category` rename) — accepted because the domain has enough real complexity elsewhere (Order status transitions, coupon redemption races, inventory reservation) that a uniform pattern beats a mixed one; CQRS without event sourcing means this project explicitly defers independent read/write scaling (C-17, [38_COMMERCE_RISK_REGISTER.md](../38_COMMERCE_RISK_REGISTER.md)) — a real, deliberate, revisitable-later trade-off, not an oversight.

@@ -1,0 +1,65 @@
+# 38 — Commerce Risk Register
+
+Phase 0 deliverable, mirroring [24_RISK_REGISTER.md](24_RISK_REGISTER.md)'s format exactly: Probability/Impact rated Low/Medium/High, a real mitigation, an owner (a role), current status. Reviewed again at the end of every Milestone 5 sprint, same discipline as the frontend register.
+
+## Payments
+
+| ID | Description | Probability | Impact | Mitigation | Owner | Status |
+|---|---|---|---|---|---|---|
+| C-01 | Double-charge on a client retry after a slow/dropped response from a payment provider | Medium — real-world network flakiness, not exotic | High — a real customer financial harm, the worst-case outcome in this whole system | `Idempotency-Key` threaded from `PlaceOrderCommand` through to `IPaymentProvider.CreateIntentAsync`, [34_PAYMENTS_NOTIFICATIONS_SEARCH.md](34_PAYMENTS_NOTIFICATIONS_SEARCH.md); stress-tested explicitly in [29_COMMERCE_ARCHITECTURE_FREEZE.md](29_COMMERCE_ARCHITECTURE_FREEZE.md) scenario 4 | Backend Engineer (Sprint 5.3) | Mitigated at design level; verification pending Sprint 5.3 |
+| C-02 | A payment provider's webhook (async capture confirmation) arrives out of order relative to the synchronous checkout response, or not at all | Medium | High — an `Order` could sit `Pending` forever despite a successful charge | Webhook-driven `PaymentCaptured` handling reconciled against a scheduled sweep job (an addition to [35_INFRASTRUCTURE_AND_DEPLOYMENT.md](35_INFRASTRUCTURE_AND_DEPLOYMENT.md)'s Hangfire job table, to be scheduled in Sprint 5.3) that queries the provider for any `Pending` order older than a threshold | Backend Engineer | Open, scheduled for Sprint 5.3 |
+| C-03 | Provider abstraction (`IPaymentProvider`) leaks a gateway-specific concept through a "generic" field, quietly coupling business logic to one vendor despite the interface | Low-Medium | Medium — a real rework cost if a second gateway is ever added and the leak surfaces | Interface reviewed against a second, hypothetical provider's shape before Sprint 5.3 implementation begins, not just against the first one built | Architect | Open, design-time check scheduled for Sprint 5.3 kickoff |
+
+## Data integrity & concurrency
+
+| ID | Description | Probability | Impact | Mitigation | Owner | Status |
+|---|---|---|---|---|---|---|
+| C-04 | Concurrent coupon redemption races past `UsageLimit` under real traffic (the one deliberate cross-aggregate transaction exception) | Medium under any real promotional traffic spike | Medium — a bounded financial loss (a few extra redemptions), not unbounded | `Coupon.RedemptionCount` incremented inside the same transaction as `Order` creation with a DB-level optimistic concurrency check, per [29_COMMERCE_ARCHITECTURE_FREEZE.md](29_COMMERCE_ARCHITECTURE_FREEZE.md) scenario 3 | Backend Engineer | Mitigated at design level; load-test verification pending Sprint 5.3 |
+| C-05 | Optimistic concurrency (`ETag`/`If-Match`) is skipped on an admin edit endpoint added late in Sprint 5.4, reintroducing a lost-update bug the pattern was meant to prevent everywhere | Medium — a discipline risk, not a design gap | Medium — a silently overwritten admin edit, confusing but recoverable via `AuditLogEntry` history | [31_COMMERCE_ENGINEERING_CONTRACTS.md](31_COMMERCE_ENGINEERING_CONTRACTS.md)'s REST convention table applies project-wide, checked explicitly in Sprint 5.4's own exit criteria (every mutable admin endpoint reviewed for `ETag` support) | Backend Engineer | Open, scheduled for Sprint 5.4 exit review |
+| C-06 | Inventory's Redis TTL reservation and PostgreSQL's durable `StockQuantity` drift under a Redis restart/failover mid-checkout | Low-Medium | Medium — a temporary over-sell risk, bounded by the reservation window (10 minutes) | Reservation sweep job (Hangfire) reconciles on a schedule; `StockQuantity.Debit()`'s own invariant (never negative) is the final backstop even if a reservation is lost | Backend Engineer | Mitigated at design level; chaos-test (kill Redis mid-flow) pending Sprint 5.3 |
+
+## Inventory & catalog
+
+| ID | Description | Probability | Impact | Mitigation | Owner | Status |
+|---|---|---|---|---|---|---|
+| C-07 | A discontinued `Product` invalidates historical `Order` line items if `RecipeSnapshotDto` denormalization is implemented incorrectly (a live foreign-key lookup instead of a real snapshot) | Low — the design explicitly rules this out | High if it happens — past receipts/order history silently break | [30_COMMERCE_DDD_MODEL.md](30_COMMERCE_DDD_MODEL.md)'s Catalog invariant is explicit; enforced by an integration test asserting a discontinued product's past orders remain fully renderable, added to Sprint 5.2's test plan | Backend Engineer | Open, test scheduled for Sprint 5.2 |
+| C-08 | PostgreSQL full-text search relevance ranking feels noticeably worse than users expect from "real search," a UX regression risk more than a technical one | Medium | Low-Medium — a polish gap, addressable without an architecture change | `ISearchService`'s engine-agnostic contract ([34_PAYMENTS_NOTIFICATIONS_SEARCH.md](34_PAYMENTS_NOTIFICATIONS_SEARCH.md)) means an Elasticsearch swap is a DI registration change if this risk materializes — accepted trade-off, not ignored | Backend Engineer / Creative Director | Accepted trade-off, revisit trigger is a real Creative Director Review finding, not assumed in advance |
+
+## Security
+
+| ID | Description | Probability | Impact | Mitigation | Owner | Status |
+|---|---|---|---|---|---|---|
+| C-09 | Refresh-token reuse-detection has a false-positive path (e.g. a legitimate retried request racing its own rotation) that locks a real user out by revoking all sessions | Low-Medium | Medium — a support burden and bad UX, not a security failure | Reuse detection keyed on token *value* consumption, not request timing; the retried-request race is closed by making rotation itself idempotent within a short window (documented as a Sprint 5.1 implementation detail to verify, not assumed correct by design alone) | Backend Engineer | Open, verification scheduled for Sprint 5.1 |
+| C-10 | Rate-limiting thresholds tuned wrong at launch — too loose (ineffective) or too tight (real users throttled, especially shared-IP scenarios like campus/office networks) | Medium | Medium | Per-user layer (keyed on JWT `sub`, [36_SECURITY_MODEL.md](36_SECURITY_MODEL.md)) reduces reliance on the IP layer alone for legitimate authenticated traffic; thresholds treated as tunable config, not hardcoded, so a bad initial value is a config change, not a redeploy | Backend Engineer | Open, initial values set in Sprint 5.1, tuned post-launch |
+
+## Integration (frontend ↔ backend)
+
+| ID | Description | Probability | Impact | Mitigation | Owner | Status |
+|---|---|---|---|---|---|---|
+| C-11 | A DTO shape drifts from its traced frontend type ([31_COMMERCE_ENGINEERING_CONTRACTS.md](31_COMMERCE_ENGINEERING_CONTRACTS.md)'s tracing table) during real implementation, breaking an existing store's adapter silently at runtime, not compile time (no shared TS/C# type system) | Medium — a real, structural risk of a polyglot boundary | Medium — a runtime error, not a data-loss risk, but a regression in exactly the surface Zero Rewrite Policy protects | OpenAPI-generated TypeScript client types ([31_COMMERCE_ENGINEERING_CONTRACTS.md](31_COMMERCE_ENGINEERING_CONTRACTS.md)'s Swashbuckle row) checked into the frontend's type-check pass — a drifted DTO fails `tsc`, not just a manual test | Frontend + Backend Engineer | Open, tooling wiring scheduled for Sprint 5.1 |
+| C-12 | [37_API_STABILITY_POLICY.md](37_API_STABILITY_POLICY.md)'s discipline is honored in Sprint 5.1-5.2 (new work, easy to keep additive) but erodes under real deadline pressure in Sprint 5.4-5.6 as the surface area and team fatigue grow | Medium — the classic point where a stated policy actually gets tested | High if it happens — the exact failure mode the policy exists to prevent | Every future Architecture Freeze performs the [37_API_STABILITY_POLICY.md](37_API_STABILITY_POLICY.md) Enforcement-section cross-check explicitly, same as [26_API_STABILITY.md](26_API_STABILITY.md) already does for the frontend — a process control, not a hope | Architect | Open, ongoing across Sprints 5.1-5.6 |
+
+## Operational / deployment
+
+| ID | Description | Probability | Impact | Mitigation | Owner | Status |
+|---|---|---|---|---|---|---|
+| C-13 | A failed EF Core migration mid-deploy leaves the schema partially applied, with the API already routed traffic | Low-Medium | High — a production outage, potentially with partial data corruption | Migrations run as an explicit pre-deploy gate, never auto-applied on app start beyond local dev, per [35_INFRASTRUCTURE_AND_DEPLOYMENT.md](35_INFRASTRUCTURE_AND_DEPLOYMENT.md); a failed migration halts the deploy before the readiness probe ever passes | DevOps / Backend Engineer | Mitigated at design level; verified by an intentional-failure drill scheduled for Sprint 5.6 |
+| C-14 | Outbox dispatcher (Hangfire) falls behind under real event volume, growing `OutboxMessages` unbounded and delaying every downstream consumer (Notifications, SignalR, Analytics) | Low at launch scale, grows with traffic | Medium — a delayed-not-lost failure, per the outbox pattern's own durability guarantee | Outbox queue depth is an explicit OpenTelemetry metric ([35_INFRASTRUCTURE_AND_DEPLOYMENT.md](35_INFRASTRUCTURE_AND_DEPLOYMENT.md)) with the earliest-signal reasoning already stated there; dispatcher poll interval and concurrency are config, not hardcoded | Backend Engineer | Monitoring, instrumented from Sprint 5.1 |
+| C-15 | Redis unavailability affects five distinct concerns simultaneously (cache, rate-limiting, reservations, search autocomplete, SignalR backplane) since they share one instance — a single point of failure wider than any one of its uses would suggest | Low (managed Redis, real uptime SLA) | High if it happens — cascading degradation across checkout, admin, and real-time features at once | Each usage's failure mode independently specified (fail-closed for rate limiting, degrade-to-DB for cache, block-checkout for reservations — [29_COMMERCE_ARCHITECTURE_FREEZE.md](29_COMMERCE_ARCHITECTURE_FREEZE.md) failure-mode table) rather than assuming Redis itself never fails | DevOps / Backend Engineer | Accepted, per-usage degradation already designed; a single managed instance is the accepted trade-off vs. operating five separate ones |
+
+## Compliance
+
+| ID | Description | Probability | Impact | Mitigation | Owner | Status |
+|---|---|---|---|---|---|---|
+| C-16 | No GDPR/CCPA-class data export/deletion flow exists ([36_SECURITY_MODEL.md](36_SECURITY_MODEL.md) names this explicitly as an accepted gap) — becomes a real problem the moment this project has an EU/CA user base or a compliance-driven customer | Low at current scope (no such requirement named in the brief) | High if the scope changes and this hasn't been addressed | Explicitly flagged rather than silently absent; `User` aggregate's shape doesn't preclude adding it later, a real design constraint already honored, not just a hope | Architect | Accepted gap, revisit trigger is a named compliance requirement, not assumed in advance |
+
+## Technical debt
+
+| ID | Description | Probability | Impact | Mitigation | Owner | Status |
+|---|---|---|---|---|---|---|
+| C-17 | CQRS is deliberately scoped down (shared read/write DB, no event sourcing) — a future real requirement for independent read/write scaling would need a genuine architecture change, not a config flip | Low near-term | Medium — a real migration cost if/when it happens, honestly scoped as a future cost now rather than hidden | Explicitly scoped and justified in [milestone-5-commerce-rfc.md](milestone-5-commerce-rfc.md) and ADR-0010 — a documented, deliberate trade-off, not an oversight | Architect | Accepted trade-off |
+| C-18 | The "Cart and Order as separate aggregates" decision ([30_COMMERCE_DDD_MODEL.md](30_COMMERCE_DDD_MODEL.md), flagged as the single most important boundary decision in the whole model) turns out wrong once real usage patterns exist, requiring a genuine data-model migration | Low — validated against a full stress-test scenario before freezing | High if it happens — a core-model migration, not a peripheral one | [29_COMMERCE_ARCHITECTURE_FREEZE.md](29_COMMERCE_ARCHITECTURE_FREEZE.md) scenario 1 is the explicit validation already performed; the decision is frozen but not unexamined | Architect | Mitigated by design-time validation; monitored post-launch |
+
+## Related
+
+[29_COMMERCE_ARCHITECTURE_FREEZE.md](29_COMMERCE_ARCHITECTURE_FREEZE.md) · [24_RISK_REGISTER.md](24_RISK_REGISTER.md) · [36_SECURITY_MODEL.md](36_SECURITY_MODEL.md) · [39_COMMERCE_IMPLEMENTATION_READINESS.md](39_COMMERCE_IMPLEMENTATION_READINESS.md) · [40_COMMERCE_RC0_APPROVAL.md](40_COMMERCE_RC0_APPROVAL.md)

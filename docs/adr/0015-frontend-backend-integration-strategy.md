@@ -1,0 +1,15 @@
+# ADR-0015 — Frontend-backend integration via adapter-swap, never a store rewrite
+
+**Status**: Accepted
+
+## Context
+
+Milestone 5 connects an existing, shipped, working frontend (five milestones of rendering/interaction/state work, [17_ZERO_REWRITE_POLICY.md](../17_ZERO_REWRITE_POLICY.md)-frozen) to a real backend for the first time. The naive approach — redesigning stores/components around the new backend's actual DTO shapes and error/loading semantics — was considered and rejected outright: it would violate Zero Rewrite Policy directly and throw away five milestones of proven, working frontend architecture for no functional gain, since the backend's DTOs were themselves traced from the frontend's existing types specifically to avoid needing this ([31_COMMERCE_ENGINEERING_CONTRACTS.md](../31_COMMERCE_ENGINEERING_CONTRACTS.md)).
+
+## Decision
+
+Every existing Zustand store keeps its exact public shape (action names, parameters, return types, selectors) unchanged. A store action that currently mutates local/mock state (e.g. `cart-store.ts`'s `placeOrder()`) gains a real network call *inside* its existing body — its callers, which span multiple already-shipped components, never change. TanStack Query (wired since Milestone 1, unused until now per ADR-0005's original "no placeholder queries" reasoning) becomes the real first consumer for server-state reads. Authentication is additive: `stores/auth-store.ts` is new, and no existing store gains a required auth dependency — an anonymous visitor is a fully-supported, default state, not an error state. No existing route is rewritten; `/admin` is entirely new.
+
+## Consequences
+
+Gains: the entire frontend's proven interaction/animation/rendering behavior is preserved by construction, not by careful re-testing after a rewrite; DTO-to-frontend-type tracing ([31_COMMERCE_ENGINEERING_CONTRACTS.md](../31_COMMERCE_ENGINEERING_CONTRACTS.md)) means the adapter layer is thin (network call + shape mapping) rather than a second business-logic layer; [37_API_STABILITY_POLICY.md](../37_API_STABILITY_POLICY.md) applied to the backend side means this frontend integration, once shipped, is itself protected from breaking in later milestones the same way the frontend's own managers already are. Costs, named honestly: this constrains the backend's DTO shapes to match frontend types that were designed under frontend-only constraints (no network in mind) — a real design tax on the backend side, accepted because rewriting five milestones of frontend work would be strictly more expensive, and because the alternative (a backend designed independently, with a heavier translation layer in the frontend) was evaluated and found to just relocate the same complexity rather than remove it; the boundary between backend domain events and the frontend's existing EventBus stays deliberately unbridged ([32_COMMERCE_EVENT_CATALOG.md](../32_COMMERCE_EVENT_CATALOG.md)), meaning any future feature that wants both needs an explicit translation, not a free ride.
