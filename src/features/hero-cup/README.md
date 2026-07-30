@@ -67,3 +67,13 @@ An earlier draft (Milestone 1) added a `lib/cupConfig.ts` default-config placeho
 
 - **Any sprint**: a real GLB part drops in via one `cupPartRegistry.ts` entry — see the asset pipeline doc's worked example.
 - **`colorway`** (`CupPartProps`, typed since Milestone 1) still has no real consumer — Sprint 3.2's customizer uses `materialOverrides` directly instead, a finer-grained mechanism than the coarser named-token `colorway` was designed for. Worth reconsidering whether `colorway` is still the right shape now that a real consumer exists to test it against, or whether it should be retired in favor of what `materialOverrides` already covers.
+
+## Update (Sprint 3.9 — Cup Scale + Camera Controls)
+
+`CameraRig` gained one new optional prop, `zoomSource?: BridgeStore<number>` — a continuous distance multiplier (1 = the preset's own authored distance), read imperatively via `.getValue()` inside `useFrame` and applied by scaling the preset's own position offset from its `lookAt` target, so any zoom level preserves the preset's authored framing angle rather than a flat mesh-scale hack. Threaded through `CupScene` → `CupCanvas` → `CupCanvasLoader`, all as additive optional props — every pre-3.9 caller passes nothing and is byte-for-byte unchanged.
+
+`hooks/useCupZoomControls.ts` is the real control surface: wheel (via `engine/interaction/useGestureRecognizer.ts`'s new `"wheel"` gesture — this hook is that dormant recognizer's first real production consumer), pinch (tracked locally, two-pointer distance), a slider, zoom-in/out buttons, Reset View, and Fit to Screen, all writing into a per-mount `BridgeStore` (not a global singleton — each cup viewer instance gets independent zoom state). `components/CupZoomControls.tsx` is the thin view over that hook's state. `HeroCupViewport.tsx` (new) owns the ref/hook pair so `Hero.tsx` itself never needs `"use client"`, matching `CupCanvasLoader`'s own "thin client boundary" precedent.
+
+`HeroCupViewport` seeds the Hero route's zoom at 1.25 (pulled back from the preset's own 1.0) — "the cup should initially appear smaller... similar to premium product configurators," per the brief. Reset View returns to this seed, not to 1.
+
+A genuine layout bug found (not previously known) while verifying the Customizer's own, more modest 1.15 seed: `features/customizer/components/CustomizerExperience.tsx`'s canvas column used `lg:h-auto`, letting flexbox's default cross-axis stretch grow it to match the options panel's own far-taller content height — badly distorting the camera's aspect ratio via `CameraRig`'s aspect-driven horizontal FOV. Fixed there, not here (see that feature's own README).

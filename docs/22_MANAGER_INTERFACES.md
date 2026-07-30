@@ -68,6 +68,14 @@ interface CameraRigProps {
   parallaxStrength?: number;
   enabled?: boolean; // false under reduced motion: snap once, no drift
   transitionDamping?: number; // was documented as `transitionDuration?: number` — a damping constant, not a duration
+  // Sprint 3.9, Task 2 — an optional continuous distance multiplier (1 =
+  // the preset's own authored distance), read imperatively via
+  // `.getValue()` inside `useFrame` (same ref-not-prop reasoning as
+  // `parallaxSource`). `undefined` for every pre-3.9 caller, so zoom stays
+  // pinned at 1 — byte-for-byte unchanged behavior when omitted. The
+  // sanctioned additive-prop extension mechanism, not a new camera
+  // implementation — see `features/hero-cup/hooks/useCupZoomControls.ts`.
+  zoomSource?: BridgeStore<number>;
 }
 ```
 
@@ -345,6 +353,35 @@ interface IDebugManager {
 **Ownership**: app-level, not scene-scoped (works across whichever scene composition root is currently active).
 **Dependencies**: BridgeStores it displays (FPS, tier); no dependency on any manager's internals beyond what those stores already expose.
 **Extension points**: `registerPanel` — a future material/lighting live-tweak surface registers itself, `DebugManager`'s own render loop never changes.
+
+## `IAIProvider` — Sprint 3.9, new
+
+**Responsibilities**: stream a chat completion from a real LLM backend, independent of which one. This project's first genuine remote-model integration — every prior "AI" feature (`features/concierge/`'s recommendation engine) is a deterministic, synchronous, local function; see that module's own doc comment for why. Server-side only; a client never imports an implementation of this interface directly, only `POST /api/ai-barista/chat`.
+
+```ts
+interface AIProviderMessage {
+  role: "system" | "user" | "assistant";
+  content: string;
+}
+
+interface AIStreamChunk {
+  content: string;
+  done: boolean;
+}
+
+interface AIProvider {
+  id: string;
+  streamChat(messages: AIProviderMessage[], options: { signal?: AbortSignal }): AsyncGenerator<AIStreamChunk>;
+}
+```
+
+**Implemented, Sprint 3.9**: `features/ai-barista/lib/providers/ollamaProvider.ts`, the only implementation this sprint, per the brief's explicit "Do NOT use placeholder AI. Use Ollama." Talks to Ollama's real `POST /api/chat` (newline-delimited JSON streaming). Model/host configurable via `OLLAMA_BASE_URL`/`OLLAMA_MODEL` env vars — swapping between llama3.1/qwen/mistral/gemma (any model already pulled locally) never needs a code change.
+**Registry**: `features/ai-barista/lib/providers/registry.ts`'s `getAIProvider()`/`setAIProvider()` — the same register/resolve pattern `engine/camera/presets.ts` already established, this interface's sanctioned extension point. A second provider (a hosted API, say) is a new file implementing `AIProvider` plus one `setAIProvider()` call; every other file in the feature is unaffected — "no vendor lock-in," enforced by the seam, not just documented.
+**Events**: `ai-barista:*` (see [19_EVENT_CATALOG.md](19_EVENT_CATALOG.md)) — emitted by `features/ai-barista/hooks/useAiBaristaChat.ts`, one layer above the provider interface itself; `AIProvider` implementations have no EventBus dependency.
+**Lifecycle**: `getAIProvider()` lazily constructs and caches a module-level singleton on first call.
+**Ownership**: `src/app/api/ai-barista/chat/route.ts` is the only caller.
+**Dependencies**: none on any other manager — deliberately isolated so a future provider swap can't accidentally couple to engine internals.
+**Extension points**: `setAIProvider()`, as above.
 
 ## Related
 

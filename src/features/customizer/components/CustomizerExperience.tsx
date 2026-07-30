@@ -29,6 +29,16 @@ interface CustomizerExperienceProps {
  * is re-checked here, not just trusted from the drag source — "strict
  * rules" enforced at every entry point an ingredient can be added from,
  * matching `IngredientLibrary`'s own disabled-button check.
+ *
+ * Sprint 3.9 fix: `lg:h-auto` previously let flexbox's default
+ * cross-axis stretch grow this column to match the options panel's own
+ * (much taller) content height — the customize panel's six swatch groups
+ * plus price/combos routinely push it past 1200px, badly distorting the
+ * canvas's aspect ratio and, via `CameraRig`'s aspect-driven horizontal
+ * FOV, cropping the cup far more aggressively than any authored preset
+ * intends. Capped to the viewport height and made sticky instead — a real
+ * "premium configurator" pattern (the 3D view stays in place while you
+ * scroll options), not just a framing patch.
  */
 export function CustomizerExperience({ drinkId }: CustomizerExperienceProps) {
   const setBaseDrink = useCustomizerStore((state) => state.setBaseDrink);
@@ -60,7 +70,7 @@ export function CustomizerExperience({ drinkId }: CustomizerExperienceProps) {
   return (
     <div id="main-content" className="flex min-h-screen flex-col pt-20 lg:flex-row lg:pt-24">
       <div
-        className="relative h-[55vh] w-full lg:h-auto lg:flex-1"
+        className="relative h-[55vh] w-full lg:sticky lg:top-24 lg:h-[calc(100vh-6rem)] lg:flex-1"
         onDragOver={(event) => {
           if (event.dataTransfer.types.includes(INGREDIENT_DRAG_TYPE)) event.preventDefault();
         }}

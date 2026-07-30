@@ -75,6 +75,22 @@ export type AppEvent =
    * performance bug, not just noise.
    */
   | { name: "chapter:entered"; chapterId: string }
-  | { name: "story:skipped"; fromChapterId: string };
+  | { name: "story:skipped"; fromChapterId: string }
+  /** Sprint 3.9 — fires on every committed zoom change (wheel, pinch, slider, reset, fit-to-screen), not per animation-frame while `CameraRig` damps toward it. See `features/hero-cup/hooks/useCupZoomControls.ts`. */
+  | { name: "camera:zoom-changed"; zoom: number }
+  /** Sprint 3.9 — the first-run onboarding tour. See `features/onboarding/`. */
+  | { name: "onboarding:started" }
+  | { name: "onboarding:step-viewed"; stepId: string; index: number }
+  | { name: "onboarding:completed" }
+  | { name: "onboarding:skipped"; stepId: string; index: number }
+  /** Sprint 3.9 — the AI Barista. See `features/ai-barista/`. */
+  | { name: "ai-barista:opened" }
+  | { name: "ai-barista:closed" }
+  | { name: "ai-barista:message-sent"; conversationId: string }
+  | { name: "ai-barista:response-started"; conversationId: string }
+  | { name: "ai-barista:response-completed"; conversationId: string; durationMs: number }
+  | { name: "ai-barista:response-failed"; conversationId: string; reason: string }
+  | { name: "ai-barista:response-cancelled"; conversationId: string }
+  | { name: "ai-barista:recipe-handoff"; drinkId: string };
 
 export type AppEventName = AppEvent["name"];

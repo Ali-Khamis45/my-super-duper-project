@@ -1,5 +1,15 @@
 import { expect, test } from "@playwright/test";
 
+import { skipOnboardingTour } from "./helpers/onboarding";
+
+// Sprint 3.9's onboarding tour auto-opens as a real modal dialog on `/` for
+// a first-time visitor, blocking cup interaction until dismissed — every
+// test here is about physics, not onboarding, so it runs as a returning
+// visitor. See `helpers/onboarding.ts`.
+test.beforeEach(async ({ page }) => {
+  await skipOnboardingTour(page);
+});
+
 /**
  * Sprint 3.4 — Liquid & Physics Experience. Purely visual/WebGL behavior
  * (spring-damped tilt, ripples, foam/ice secondary motion) has no DOM state

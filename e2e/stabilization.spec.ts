@@ -1,5 +1,16 @@
 import { expect, test } from "@playwright/test";
 
+import { skipOnboardingTour } from "./helpers/onboarding";
+
+// Sprint 3.9's onboarding tour auto-opens as a real modal dialog on `/` for
+// a first-time visitor, which would otherwise block every test below from
+// reaching the theme toggle, the cup, or anything else on the page — see
+// `helpers/onboarding.ts`'s own doc comment. Every test here is about
+// something else entirely, so it runs as a returning visitor instead.
+test.beforeEach(async ({ page }) => {
+  await skipOnboardingTour(page);
+});
+
 /**
  * Sprint 2.6's real cross-browser/production-readiness verification —
  * console-error monitoring throughout is the primary signal: a silent
@@ -227,7 +238,22 @@ test.describe("visual regression baseline", () => {
       if (theme === "dark") {
         await page.getByRole("button", { name: /switch to dark theme/i }).click();
       }
-      await page.waitForTimeout(1000);
+      // Real, previously-undetected finding from this sprint's own
+      // verification: a fixed wait is not a reliable proxy for "the canvas
+      // has actually painted" — an earlier `--update-snapshots` run captured
+      // this exact baseline while the canvas was still blank (shader compile
+      // hadn't finished), producing a bad baseline that then "failed" every
+      // later comparison with a dramatic full-cup diff, not app flakiness. A
+      // `readPixels`-based readiness poll was tried and abandoned (unreliable
+      // across engines). The real fix: Sprint 3.9 wired `scene:ready`'s first
+      // real publisher (`CupScene.tsx`, on its first rendered frame) and
+      // reflected it as `data-scene-ready` on the same `[role=application]`
+      // element — a genuine app-level signal, not a guessed delay.
+      await page.waitForSelector(`${APP_SELECTOR}[data-scene-ready="true"]`, { timeout: 20_000 });
+      // `scene:ready` proves R3F rendered a first frame, not that every cup
+      // part's individual (async) texture has finished loading by then —
+      // real remaining margin for that, not a guessed "probably enough" delay.
+      await page.waitForTimeout(2000);
       await expect(page).toHaveScreenshot(`hero-${theme}.png`, {
         maxDiffPixelRatio: 0.05,
         animations: "disabled",

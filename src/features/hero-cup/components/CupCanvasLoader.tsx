@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import type { CameraPresetName } from "@/engine/camera/presets";
 import type { EnvironmentPresetName } from "@/engine/environment/presets";
 import type { LightingPresetName } from "@/engine/lighting/presets";
+import type { BridgeStore } from "@/engine/state/createBridgeStore";
 
 import type { CupPartName, CupPartProps, ResolvedIngredientLayer } from "../registry/types";
 import { CupStaticFallback } from "./CupStaticFallback";
@@ -29,6 +30,8 @@ interface CupCanvasLoaderProps {
   /** Sprint 3.7 — `features/storytelling/` is this prop pair's first real caller. */
   lightingPresetOverride?: LightingPresetName;
   environmentPresetOverride?: EnvironmentPresetName;
+  /** Sprint 3.9 — threaded straight through to `CupCanvas`. */
+  zoomSource?: BridgeStore<number>;
 }
 
 export function CupCanvasLoader({
@@ -39,6 +42,7 @@ export function CupCanvasLoader({
   cameraPreset,
   lightingPresetOverride,
   environmentPresetOverride,
+  zoomSource,
 }: CupCanvasLoaderProps = {}) {
   return (
     <CupCanvas
@@ -49,6 +53,7 @@ export function CupCanvasLoader({
       cameraPreset={cameraPreset}
       lightingPresetOverride={lightingPresetOverride}
       environmentPresetOverride={environmentPresetOverride}
+      zoomSource={zoomSource}
     />
   );
 }

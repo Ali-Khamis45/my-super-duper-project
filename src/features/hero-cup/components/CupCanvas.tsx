@@ -14,6 +14,8 @@ import type { LightingPresetName } from "@/engine/lighting/presets";
 import { fadeIn } from "@/engine/motion/presets";
 import { performanceManager } from "@/engine/performance";
 import { resolveQualityPolicy } from "@/engine/performance/qualityPolicy";
+import type { BridgeStore } from "@/engine/state/createBridgeStore";
+import { sceneReady } from "@/engine/state/sceneReady";
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 
 import { useCupKeyboardTrigger } from "../hooks/useCupKeyboardControls";
@@ -35,6 +37,8 @@ interface CupCanvasProps {
   /** Sprint 3.7 — threaded straight through to `CupScene`. */
   lightingPresetOverride?: LightingPresetName;
   environmentPresetOverride?: EnvironmentPresetName;
+  /** Sprint 3.9 — threaded straight through to `CupScene`/`CameraRig`. */
+  zoomSource?: BridgeStore<number>;
 }
 
 /**
@@ -58,6 +62,7 @@ export default function CupCanvas({
   cameraPreset = "hero",
   lightingPresetOverride,
   environmentPresetOverride,
+  zoomSource,
 }: CupCanvasProps = {}) {
   // Read once per mount (the prop won't change after mount for any current
   // caller), not re-resolved every render — `resolveCameraPreset` always
@@ -75,6 +80,11 @@ export default function CupCanvas({
   // `useSmoothedValue.ts`'s doc comment on which parameters can and can't be).
   const tier = performanceManager.tier.useValue();
   const dprRange = resolveQualityPolicy(tier).dprRange;
+  // Sprint 3.9 — reactive (not `.getValue()`), the same reasoning as `tier`
+  // above: a route/scene swap resets this to `false` (see `CupScene.tsx`),
+  // and the DOM-facing `data-scene-ready` attribute below needs to reflect
+  // that transition, not just its eventual "became ready again" value.
+  const isSceneReady = sceneReady.useValue();
 
   const onCreated = useCallback(
     (state: RootState) => {
@@ -125,6 +135,7 @@ export default function CupCanvas({
         tabIndex={contextLost ? -1 : 0}
         role="application"
         aria-label="Interactive 3D coffee cup. Use the Left and Right arrow keys to rotate it."
+        data-scene-ready={isSceneReady}
         onKeyDown={onKeyDown}
         onCreated={onCreated}
       >
@@ -137,6 +148,7 @@ export default function CupCanvas({
             cameraPreset={cameraPreset}
             lightingPresetOverride={lightingPresetOverride}
             environmentPresetOverride={environmentPresetOverride}
+            zoomSource={zoomSource}
           />
         </Suspense>
       </Canvas>

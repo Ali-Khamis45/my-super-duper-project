@@ -3,6 +3,7 @@ import { Fraunces, Geist, Geist_Mono } from "next/font/google";
 
 import { SkipLink } from "@/components/layout/SkipLink";
 import { Navbar } from "@/components/layout/navbar/Navbar";
+import { AiBaristaLauncher } from "@/features/ai-barista/components/AiBaristaLauncher";
 import { Providers } from "./providers";
 
 import "./globals.css";
@@ -24,13 +25,37 @@ const fraunces = Fraunces({
   axes: ["opsz", "SOFT", "WONK"],
 });
 
+const siteName = "Coffeshop";
+const description =
+  "An interactive, premium coffee-shop experience — craft-first, motion-driven, built to be used, not just viewed.";
+
 export const metadata: Metadata = {
+  // Required for Next to resolve the file-convention OG/Twitter image
+  // routes into absolute URLs. No production domain exists yet — falls
+  // back to localhost rather than inventing one; set NEXT_PUBLIC_SITE_URL
+  // once this ships somewhere real.
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"),
   title: {
-    default: "Coffeshop — A Premium Coffee Experience",
-    template: "%s · Coffeshop",
+    default: `${siteName} — A Premium Coffee Experience`,
+    template: `%s · ${siteName}`,
   },
-  description:
-    "An interactive, premium coffee-shop experience — craft-first, motion-driven, built to be used, not just viewed.",
+  description,
+  openGraph: {
+    type: "website",
+    siteName,
+    title: `${siteName} — A Premium Coffee Experience`,
+    description,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: `${siteName} — A Premium Coffee Experience`,
+    description,
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: siteName,
+  },
 };
 
 export default function RootLayout({
@@ -49,6 +74,7 @@ export default function RootLayout({
           <SkipLink />
           <Navbar />
           {children}
+          <AiBaristaLauncher />
         </Providers>
       </body>
     </html>

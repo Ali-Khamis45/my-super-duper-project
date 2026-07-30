@@ -84,6 +84,20 @@ const registry = new Map<CameraPresetName, CameraPreset>([
   ],
 ]);
 
+/**
+ * Sprint 3.9 — shared clamp range for `CameraRig`'s optional `zoomSource`
+ * distance multiplier (1 = the preset's own authored distance). Lives here,
+ * not inside `CameraRig.tsx` or a feature hook, so both the rig and any
+ * zoom-control UI clamp against the exact same bounds instead of two
+ * independently-guessed numbers drifting apart. `CAMERA_ZOOM_MIN` is close
+ * enough to 1 that even the closest allowed zoom never pushes the camera
+ * through the cup's own geometry at any registered preset's distance;
+ * `CAMERA_ZOOM_MAX` stays inside every preset's frustum far enough out that
+ * the contact shadow and environment reflections stay in frame.
+ */
+export const CAMERA_ZOOM_MIN = 0.65;
+export const CAMERA_ZOOM_MAX = 1.7;
+
 /** Sanctioned extension path (docs/17_ZERO_REWRITE_POLICY.md) — a new preset is one call, zero changes elsewhere. */
 export function registerCameraPreset(name: CameraPresetName, preset: CameraPreset): void {
   registry.set(name, preset);

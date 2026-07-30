@@ -1,8 +1,9 @@
 import { DevPanel } from "@/engine/devpanel/DevPanel";
 import { EngineHealthPanel } from "@/engine/devpanel/EngineHealthPanel";
+import { OnboardingLauncher } from "@/features/onboarding/components/OnboardingLauncher";
 
-import { CupCanvasLoader } from "./CupCanvasLoader";
 import { HeroCopy } from "./HeroCopy";
+import { HeroCupViewport } from "./HeroCupViewport";
 
 /**
  * Full-bleed — the Navbar intentionally floats (glass, fixed) over this,
@@ -11,10 +12,9 @@ import { HeroCopy } from "./HeroCopy";
 export function Hero() {
   return (
     <section id="main-content" className="relative min-h-screen w-full overflow-hidden">
-      <div className="hero-canvas-wrapper absolute inset-0">
-        <CupCanvasLoader />
-      </div>
+      <HeroCupViewport />
       <HeroCopy />
+      <OnboardingLauncher />
       <DevPanel />
       <EngineHealthPanel />
     </section>

@@ -1,5 +1,14 @@
 import { expect, test } from "@playwright/test";
 
+import { skipOnboardingTour } from "./helpers/onboarding";
+
+// Sprint 3.9's onboarding tour auto-opens as a real modal dialog on `/` for
+// a first-time visitor — every test here is about long-running stability,
+// not onboarding, so it runs as a returning visitor. See `helpers/onboarding.ts`.
+test.beforeEach(async ({ page }) => {
+  await skipOnboardingTour(page);
+});
+
 /**
  * Long-running stability + memory-leak-trend checks (Sprint 2.6). Two of
  * the sprint brief's named scenarios have no real feature surface yet and

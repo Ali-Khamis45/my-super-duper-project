@@ -6,10 +6,10 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
 export const navigationItems = [
-  { label: "Menu", href: "/menu" },
-  { label: "Customize", href: "/customize" },
+  { label: "Menu", href: "/menu", onboarding: "nav-menu" },
+  { label: "Customize", href: "/customize", onboarding: "nav-customize" },
   { label: "Concierge", href: "/concierge" },
-  { label: "Our Story", href: "/story" },
+  { label: "Our Story", href: "/story", onboarding: "nav-story" },
 ] as const;
 
 interface NavLinksProps {
@@ -28,6 +28,7 @@ export function NavLinks({ className, onNavigate }: NavLinksProps) {
             href={item.href}
             onClick={onNavigate}
             aria-current={pathname === item.href ? "page" : undefined}
+            data-onboarding={"onboarding" in item ? item.onboarding : undefined}
             className="text-foreground/80 hover:text-foreground duration-(--duration-fast) text-sm font-medium transition-colors"
           >
             {item.label}

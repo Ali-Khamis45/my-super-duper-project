@@ -1,9 +1,9 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Coffee } from "lucide-react";
 import Link from "next/link";
 
+import { BrandMark } from "@/design-system/brand/BrandMark";
 import { GlassSurface } from "@/design-system/primitives/GlassSurface";
 import { ThemeToggle } from "@/design-system/theme/ThemeToggle";
 import { durations } from "@/engine/motion/durations";
@@ -11,6 +11,7 @@ import { easings } from "@/engine/motion/easings";
 import { fadeIn } from "@/engine/motion/presets";
 import { CartAnnouncer } from "@/features/cart/components/CartAnnouncer";
 import { CartIcon } from "@/features/cart/components/CartIcon";
+import { ReplayTourButton } from "@/features/onboarding/components/ReplayTourButton";
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 
 import { MobileMenu } from "./MobileMenu";
@@ -36,13 +37,14 @@ export function Navbar() {
           <GlassSurface elevation="sm" className="px-4 py-2.5">
             <nav aria-label="Primary" className="flex w-full items-center justify-between gap-4">
               <Link href="/" className="font-display flex shrink-0 items-center gap-2 text-lg">
-                <Coffee className="text-brand-accent-500 size-5" aria-hidden="true" />
+                <BrandMark size={20} className="shrink-0" />
                 Coffeshop
               </Link>
               <NavLinks className="hidden sm:flex" />
               <div className="flex shrink-0 items-center gap-1">
                 <CartAnnouncer />
                 <CartIcon />
+                <ReplayTourButton />
                 <ThemeToggle />
                 <MobileMenu />
               </div>

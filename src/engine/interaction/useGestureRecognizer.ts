@@ -48,6 +48,18 @@ export function useGestureRecognizer(
       handlersRef.current[type]?.(event);
     }
 
+    function handleWheel(event: WheelEvent) {
+      // Non-passive: a wheel gesture over the target is this recognizer's to
+      // interpret (e.g. camera zoom), not the page's to scroll.
+      event.preventDefault();
+      dispatch("wheel", {
+        type: "wheel",
+        pointerKind: "mouse",
+        position: buildPosition(event.clientX, event.clientY),
+        delta: { x: event.deltaX, y: event.deltaY },
+      });
+    }
+
     function handlePointerEnter(event: PointerEvent) {
       dispatch("hover-start", {
         type: "hover-start",
@@ -138,11 +150,13 @@ export function useGestureRecognizer(
     target.addEventListener("pointerenter", handlePointerEnter);
     target.addEventListener("pointerleave", handlePointerLeave);
     target.addEventListener("pointerdown", handlePointerDown);
+    target.addEventListener("wheel", handleWheel, { passive: false });
 
     return () => {
       target.removeEventListener("pointerenter", handlePointerEnter);
       target.removeEventListener("pointerleave", handlePointerLeave);
       target.removeEventListener("pointerdown", handlePointerDown);
+      target.removeEventListener("wheel", handleWheel);
       window.removeEventListener("pointermove", handleWindowPointerMove);
       window.removeEventListener("pointerup", handleWindowPointerUp);
       if (pressHoldTimer) clearTimeout(pressHoldTimer);

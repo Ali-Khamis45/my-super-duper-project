@@ -1,12 +1,17 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 
 import { resolveIngredientLayers } from "@/features/composer/lib/resolveIngredientLayers";
 import { CupCanvasLoader } from "@/features/hero-cup/components/CupCanvasLoader";
+import { CupZoomControls } from "@/features/hero-cup/components/CupZoomControls";
+import { useCupZoomControls } from "@/features/hero-cup/hooks/useCupZoomControls";
 import { useCustomizerStore } from "@/stores/customizer-store";
 
 import { resolvePartOverrides } from "../lib/resolvePartOverrides";
+
+/** More modest than the Hero route's pull-back (1.25) — the "product" framing here is already tighter/closer than "hero", so a smaller initial zoom-out is enough for "comfortably inspect it." */
+const CUSTOMIZER_INITIAL_ZOOM = 1.15;
 
 /**
  * Reuses `CupCanvasLoader` directly rather than a second `next/dynamic`
@@ -24,17 +29,23 @@ import { resolvePartOverrides } from "../lib/resolvePartOverrides";
 export function CustomizerCanvas() {
   const selection = useCustomizerStore((state) => state.selection);
   const preview = useCustomizerStore((state) => state.preview);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const zoomControls = useCupZoomControls({ targetRef: wrapperRef, initialZoom: CUSTOMIZER_INITIAL_ZOOM });
 
   const effective = useMemo(() => ({ ...selection, ...preview }), [selection, preview]);
   const { partOverrides, cupScale } = useMemo(() => resolvePartOverrides(effective), [effective]);
   const ingredientLayers = useMemo(() => resolveIngredientLayers(selection.ingredients), [selection.ingredients]);
 
   return (
-    <CupCanvasLoader
-      partOverrides={partOverrides}
-      cupScale={cupScale}
-      ingredientLayers={ingredientLayers}
-      route="/customize"
-    />
+    <div ref={wrapperRef} className="relative h-full w-full" style={{ touchAction: "none" }}>
+      <CupCanvasLoader
+        partOverrides={partOverrides}
+        cupScale={cupScale}
+        ingredientLayers={ingredientLayers}
+        route="/customize"
+        zoomSource={zoomControls.zoomStore}
+      />
+      <CupZoomControls controls={zoomControls} className="absolute bottom-4 left-1/2 -translate-x-1/2 sm:bottom-6" />
+    </div>
   );
 }

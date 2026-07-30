@@ -13,4 +13,5 @@ export type AnalyticsEvent =
   | { name: "memory_pressure_detected"; payload: { reason: string } }
   | { name: "menu_searched"; payload: { query: string; resultCount: number } }
   | { name: "menu_category_filtered"; payload: { category: string } }
-  | { name: "menu_drink_viewed"; payload: { drinkId: string } };
+  | { name: "menu_drink_viewed"; payload: { drinkId: string } }
+  | { name: "onboarding_step_viewed"; payload: { stepId: string; index: number } };

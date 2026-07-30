@@ -11,7 +11,9 @@ export type GestureType =
   | "drag-end"
   | "hover-start"
   | "hover-end"
-  | "press-hold";
+  | "press-hold"
+  /** Sprint 3.9 — the first real DOM-native, non-pointer gesture this recognizer handles; see `features/hero-cup/hooks/useCupZoomControls.ts`, its first real consumer. */
+  | "wheel";
 
 export type PointerKind = "mouse" | "touch" | "pen" | "keyboard" | "gamepad";
 

@@ -52,7 +52,14 @@ export function CartIcon() {
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger
         render={
-          <Button ref={buttonRef} variant="ghost" size="icon" aria-label={`Cart, ${count} item${count === 1 ? "" : "s"}`} className="relative">
+          <Button
+            ref={buttonRef}
+            variant="ghost"
+            size="icon"
+            aria-label={`Cart, ${count} item${count === 1 ? "" : "s"}`}
+            className="relative"
+            data-onboarding="cart-icon"
+          >
             <ShoppingBag className="size-5" aria-hidden="true" />
             {count > 0 && (
               <motion.span
