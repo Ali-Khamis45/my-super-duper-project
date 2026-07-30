@@ -8,7 +8,7 @@ The AI Coffee Concierge at `/concierge`: a preference questionnaire, a real expl
 concierge/
 ├── components/
 │   ├── ConciergeExperience.tsx    top-level composition, focus management
-│   ├── ConciergeCanvas.tsx        wires cameraPreset + ingredientLayers reveal
+│   ├── ConciergeCanvas.tsx        wires cameraPreset + ingredientLayers reveal + zoom controls
 │   ├── PreferenceQuestionnaire.tsx  the 8-question form
 │   ├── PreferenceOptionGroup.tsx  named-choice radiogroup control
 │   ├── PreferenceScale.tsx        1-5 scale control (sweetness/bitterness)
@@ -22,6 +22,10 @@ concierge/
 ```
 
 Session state (`tasteProfile`/`lastRecommendation`/`favorites`) lives in `stores/concierge-store.ts` (project-root `stores/`, same convention `customizer-store.ts` established) — `sessionStorage`-persisted, per the brief's "AI state remains isolated... Persist session only."
+
+## Fix (post-Sprint 5.2): missing zoom controls
+
+`ConciergeCanvas` reused `CupCanvasLoader` directly but never wired up `CupZoomControls`/`useCupZoomControls` — the same real zoom slider + zoom-in/out/reset/fit-to-screen bar `CustomizerCanvas` already has. Drag/touch/keyboard rotation was never affected (built into `CupCanvasLoader` itself, not gated by `route`), but the visible scale control and explicit "reset view" affordance were genuinely missing here, a real inconsistency between this project's two product-inspection views. Fixed by mirroring `CustomizerCanvas.tsx`'s exact pattern — a wrapping `<div>` ref, `useCupZoomControls`, `zoomSource`/`CupZoomControls` — verified live (slider renders, is positioned correctly, and actually changes zoom on drag; zero console errors; full existing `concierge.spec.ts` suite still passing).
 
 ## Why not TanStack Query (for the scoring step itself)
 
