@@ -36,11 +36,11 @@ Building one (`buildRecipeSnapshot`) and restoring one (`customizer-store`'s `lo
 2. `CartIcon` (navbar, every route) shows a real item-count badge and registers its own DOM node with `cartIconAnchor` (a `createBridgeStore` instance, the same cross-component-tree-boundary pattern `useCupKeyboardControls`'s `keyboardRotationDelta` established) so `AddToCartButton` has a real target position to animate a "flying" ghost element toward.
 3. `MiniCart` (the icon's `Sheet`) and the full `/cart` page (`CartExperience`) both render the same `CartItemRow`/`PriceBreakdown` components — a compact, read-mostly mode for the mini-cart, full quantity/remove/favorite/edit controls on the full page.
 4. "Edit" calls `customizer-store`'s `loadRecipeSnapshot` (rehydrating `selection`/`baseDrinkId`/`baseDrinkCategory`/`appliedRecommendationId` all at once) and navigates to `/customize?drink=<id>` — the same real routing Sprint 3.3/3.5 already established.
-5. `/checkout` (`CheckoutExperience`) shows the order summary and a minimal name/email form; "Place Order" calls `cart-store`'s `placeOrder()` (builds a `CompletedOrder`, clears the cart, emits `checkout:completed`) and navigates to `/checkout/confirmation`, which reads `lastOrder` for its premium reveal.
+5. `/checkout` (`CheckoutExperience`) shows the order summary and a minimal name/email form; "Place Order" calls `cart-store`'s `placeOrder()` — since Sprint 5.3, a real `POST /api/v1/orders` call (`lib/order-client.ts`), not a locally-fabricated record — clears the cart, emits `checkout:completed`, and navigates to `/checkout/confirmation`, which reads `lastOrder` (the real `OrderDto` the backend returned) for its premium reveal.
 
 ## Responsibilities
 
-- **This feature owns**: the `RecipeSnapshot`/`CartItem`/`CompletedOrder` models, cart/favorites/order session state, the fly-to-cart animation, its own cart/checkout/confirmation UI.
+- **This feature owns**: the `RecipeSnapshot`/`CartItem` models, cart/favorites session state, the fly-to-cart animation, its own cart/checkout/confirmation UI. `CompletedOrder` (a Sprint 3.6-era local, fabricated order record) is gone as of Sprint 5.3 — `cart-store.ts`'s `lastOrder` field now holds the real `OrderDto` `features/orders/` also reads.
 - **This feature borrows from `stores/customizer-store.ts`**: the live selection `AddToCartButton` snapshots, and `loadRecipeSnapshot` for editing — never a duplicated selection model.
 - **This feature borrows from `features/composer/`**: `calculateIngredientsTotal` (extracted this sprint from `RecipeSummary.tsx` specifically so pricing is computed exactly once, not twice).
 - **This feature borrows from `features/menu/`**: `resolveDrink`, for the same "never a second drink dataset" reason every prior feature here follows.
@@ -48,8 +48,15 @@ Building one (`buildRecipeSnapshot`) and restoring one (`customizer-store`'s `lo
 
 ## Known simplifications
 
-- Checkout collects name/email only — no payment fields. This project has no backend or payment gateway; building fake card-number inputs would be actively misleading rather than a real "premium" flow, the same honesty this project's other simulated-but-transparent systems (the AI Concierge's rule engine, Sprint 3.4's "not a physics engine") already establish.
+- Checkout collects name/email only — no payment fields. This project has no payment gateway (see `PayOrderCommand`'s own doc comment for what "pay" means instead — staff recording payment received outside this system); building fake card-number inputs would be actively misleading rather than a real "premium" flow, the same honesty this project's other simulated-but-transparent systems (the AI Concierge's rule engine, Sprint 3.4's "not a physics engine") already establish.
 - Favorites/`lastOrder` are `localStorage`-persisted alongside cart items for simplicity, not literally erased at tab-close — "session only" in the brief is read here as "no server account," matching `stores/cart-store.ts`'s own doc comment.
+
+## Update (Sprint 5.3, Ordering Platform)
+
+`placeOrder()` now calls the real backend (`lib/order-client.ts`) instead of fabricating a `CompletedOrder` locally — see `features/orders/README.md` for the full order-lifecycle feature this unlocked (My Orders, Order Details, Order Timeline). Two real, additive changes this required here:
+
+- **`RecipeSnapshot` gained a required `productId` field** (the real backend `Product.Id`) — `buildRecipeSnapshot.ts` now returns `null` if it's missing, the same "never fabricate a snapshot for a drink that doesn't exist" rule it already applied to an unresolvable `baseDrinkId`, now also covering "unresolvable against the *live* catalog." `AddToCartButton`'s own button is disabled until `customizer-store`'s `baseDrinkProductId` resolves (a real, brief loading state on first mount, not a silent no-op).
+- **A real, live-verified double-submission bug** (two concurrent identical checkout requests created two separate orders) is closed by a client-generated `idempotencyKey`, generated once per `/checkout` page mount (`CheckoutExperience.tsx`'s own `useState` initializer) and threaded through `placeOrder()` — stable across the same "Place Order" intent, not regenerated per click, so a genuine double-click or retry reuses it. See `Order.IdempotencyKey`'s own doc comment and [docs/reviews/sprint-5.3-review.md](../../../docs/reviews/sprint-5.3-review.md).
 
 ## Update (Sprint 3.8, Final Polish)
 
@@ -59,5 +66,6 @@ Found, not fixed this sprint: `reorderItem` (`cart-store.ts`) is a real, tested 
 
 ## Future extension
 
-- **A real backend/account system**: `RecipeSnapshot`/`CompletedOrder` are already shaped to be the contract a future order-history/account feature would consume directly — "linking orders to the account for future use," the brief's own words, is a real, enabled seam, not a promise requiring a reshape later.
-- **A real payment gateway**: `CheckoutExperience`'s form is the one place a real payment step would slot in, without touching the cart model itself.
+- **A real payment gateway**: `CheckoutExperience`'s form is the one place a real payment step would slot in, without touching the cart model itself — `PayOrderCommand` already exists on the backend for staff to record a payment through some other means; a real `Payment` aggregate/`IPaymentProvider` would extend that, not replace it.
+
+(The "future backend/account system" item this section once named is done — see the Sprint 5.3 update above and `features/orders/README.md`.)

@@ -1,6 +1,6 @@
 "use client";
 
-import { LogOut, User } from "lucide-react";
+import { LogOut, Package, User } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -60,6 +60,11 @@ export function AccountMenu() {
             <span className="text-muted-foreground text-xs">{user.email}</span>
           </div>
         </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem render={<Link href="/orders" />}>
+          <Package />
+          My Orders
+        </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={handleLogout}>
           <LogOut />

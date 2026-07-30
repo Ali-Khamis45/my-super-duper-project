@@ -35,7 +35,7 @@ export function CartItemRow({ item, compact = false }: CartItemRowProps) {
   function handleEdit() {
     // "Editing items in the cart" — rehydrate the customizer from this
     // exact snapshot (no reconstruction) and go there.
-    useCustomizerStore.getState().loadRecipeSnapshot(item.snapshot.baseDrinkId, item.snapshot.baseDrinkCategory, item.snapshot.selection, item.snapshot.appliedRecommendationId);
+    useCustomizerStore.getState().loadRecipeSnapshot(item.snapshot.baseDrinkId, item.snapshot.productId, item.snapshot.baseDrinkCategory, item.snapshot.selection, item.snapshot.appliedRecommendationId);
     router.push(`/customize?drink=${item.snapshot.baseDrinkId}`);
   }
 

@@ -13,6 +13,7 @@ import { Separator } from "@/components/ui/separator";
 import { appEvents } from "@/engine/events";
 import { fadeUp } from "@/engine/motion/presets";
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
+import { ApiError } from "@/lib/api-errors";
 import { selectCartTotal, useCartStore } from "@/stores/cart-store";
 
 import { PriceBreakdown } from "./PriceBreakdown";
@@ -20,11 +21,12 @@ import { PriceBreakdown } from "./PriceBreakdown";
 /**
  * `/checkout` — an order summary plus a minimal, honestly-scoped form
  * (name/email for a receipt, no real payment fields; this project has no
- * backend or payment gateway, and building fake card-number inputs would
- * be actively misleading rather than a real "premium" flow). "Place
- * Order" is the checkout's one real commit point: `cart-store`'s
- * `placeOrder()` builds the `CompletedOrder`, clears the cart, and this
- * component navigates to the confirmation route.
+ * payment gateway, and building fake card-number inputs would be actively
+ * misleading rather than a real "premium" flow — see `PayOrderCommand`'s own
+ * doc comment on what "pay" means here). "Place Order" is the checkout's
+ * one real commit point: `cart-store`'s `placeOrder()` submits the cart to
+ * the real `POST /api/v1/orders`, clears it, and this component navigates
+ * to the confirmation route once the backend has actually accepted it.
  */
 export function CheckoutExperience() {
   const router = useRouter();
@@ -34,6 +36,13 @@ export function CheckoutExperience() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [isPlacing, setIsPlacing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  // Stable for the lifetime of this page instance, not regenerated per click — a real double
+  // submission (the same "Place Order" intent firing twice) must reuse the same key so the
+  // backend's own idempotency check can recognize it; a fresh mount (e.g. navigating back to
+  // /checkout again) is a legitimately new attempt and gets a new one. See `Order.IdempotencyKey`'s
+  // own doc comment for the real, live-verified double-submission bug this closes.
+  const [idempotencyKey] = useState(() => crypto.randomUUID());
   const total = selectCartTotal(items);
 
   useEffect(() => {
@@ -46,16 +55,22 @@ export function CheckoutExperience() {
 
   const canPlaceOrder = items.length > 0 && name.trim().length > 0 && email.trim().length > 0;
 
-  function handlePlaceOrder(event: React.FormEvent) {
+  async function handlePlaceOrder(event: React.FormEvent) {
     event.preventDefault();
     if (!canPlaceOrder) return;
     setIsPlacing(true);
-    const order = placeOrder();
-    if (!order) {
+    setError(null);
+    try {
+      const order = await placeOrder(name.trim(), email.trim(), idempotencyKey);
+      if (!order) {
+        setIsPlacing(false);
+        return;
+      }
+      router.push("/checkout/confirmation");
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Something went wrong placing your order. Please try again.");
       setIsPlacing(false);
-      return;
     }
-    router.push("/checkout/confirmation");
   }
 
   if (items.length === 0) {
@@ -99,6 +114,12 @@ export function CheckoutExperience() {
           </div>
 
           <Separator />
+
+          {error && (
+            <p role="alert" className="text-destructive text-sm">
+              {error}
+            </p>
+          )}
 
           <Button type="submit" size="lg" disabled={!canPlaceOrder || isPlacing} className="self-start">
             {isPlacing ? "Placing order…" : `Place Order — $${total.toFixed(2)}`}

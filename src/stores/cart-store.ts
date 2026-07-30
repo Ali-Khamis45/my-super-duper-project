@@ -2,7 +2,9 @@ import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
 import { appEvents } from "@/engine/events";
-import type { CartItem, CompletedOrder, RecipeSnapshot } from "@/features/cart/types";
+import { mapCartItemsToOrderLines } from "@/features/cart/lib/mapCartToOrderRequest";
+import type { CartItem, RecipeSnapshot } from "@/features/cart/types";
+import { createOrder, type OrderDto } from "@/lib/order-client";
 
 /**
  * Sprint 3.6's dedicated cart state — same "small, flat, dedicated Zustand
@@ -29,7 +31,7 @@ interface CartStoreState {
   items: CartItem[];
   /** Session-only in spirit (favorited recipes, not accounts) but persisted the same as the rest of this store for simplicity — see the brief's "Favorites (session only)," read here as "no server account," not "must vanish on reload." */
   favorites: RecipeSnapshot[];
-  lastOrder: CompletedOrder | null;
+  lastOrder: OrderDto | null;
   addItem: (snapshot: RecipeSnapshot, quantity?: number) => void;
   removeItem: (cartItemId: string) => void;
   updateQuantity: (cartItemId: string, quantity: number) => void;
@@ -37,8 +39,15 @@ interface CartStoreState {
   clear: () => void;
   toggleFavorite: (snapshot: RecipeSnapshot) => void;
   addFavoriteToCart: (snapshotId: string) => void;
-  /** Builds a `CompletedOrder` from the current cart, clears it, records `lastOrder` — the checkout flow's one commit point. Returns `null` for an empty cart (nothing to place). */
-  placeOrder: () => CompletedOrder | null;
+  /**
+   * Sprint 5.3 — submits the current cart to the real `POST /api/v1/orders`, clears it, and
+   * records the real `OrderDto` response as `lastOrder` on success — the checkout flow's one
+   * commit point. `null` for an empty cart (nothing to place, never even attempted). A real
+   * failure (validation, an item that's gone unavailable, a network error) *throws* rather than
+   * swallowing the error into a `null` return — `CheckoutExperience` needs the real
+   * `ApiError`/message to show the customer, not just a generic "something went wrong."
+   */
+  placeOrder: (guestName: string | null, guestEmail: string | null, idempotencyKey: string) => Promise<OrderDto | null>;
 }
 
 function cartTotal(items: CartItem[]): number {
@@ -114,15 +123,18 @@ export const useCartStore = create<CartStoreState>()(
         get().addItem(favorite, 1);
       },
 
-      placeOrder: () => {
+      placeOrder: async (guestName, guestEmail, idempotencyKey) => {
         const items = get().items;
         if (items.length === 0) return null;
-        const order: CompletedOrder = {
-          id: crypto.randomUUID(),
-          placedAt: Date.now(),
-          items,
-          total: cartTotal(items),
-        };
+
+        const order = await createOrder({
+          lines: mapCartItemsToOrderLines(items),
+          guestName,
+          guestEmail,
+          fulfillmentMethod: "Pickup",
+          idempotencyKey,
+        });
+
         set({ items: [], lastOrder: order });
         appEvents.emit({ name: "checkout:completed", orderId: order.id });
         return order;

@@ -1,6 +1,7 @@
 using Coffeshop.Api;
 using Coffeshop.Api.Endpoints.Auth;
 using Coffeshop.Api.Endpoints.Catalog;
+using Coffeshop.Api.Endpoints.Ordering;
 using Coffeshop.Infrastructure.Logging;
 using Coffeshop.Persistence;
 using Coffeshop.Persistence.Seed;
@@ -94,6 +95,7 @@ app.MapProductEndpoints();
 app.MapCategoryEndpoints();
 app.MapIngredientEndpoints();
 app.MapSearchEndpoints();
+app.MapOrderEndpoints();
 
 app.Run();
 

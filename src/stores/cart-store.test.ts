@@ -1,8 +1,19 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { appEvents } from "@/engine/events";
 import type { RecipeSnapshot } from "@/features/cart/types";
 import { DEFAULT_SELECTION } from "@/stores/customizer-store";
+
+// `placeOrder()` (Sprint 5.3) submits to the real `POST /api/v1/orders` via `order-client.ts` —
+// mocked here the same way `engine/assets/glb.test.ts` mocks its own network-adjacent module, so
+// this store's own merge/clear/event-emission logic is what's under test, not a real fetch.
+// `vi.hoisted` is required (not a plain top-level `const`) since `vi.mock`'s factory is itself
+// hoisted above every import/statement in this file — a bare `const` wouldn't exist yet when it
+// runs.
+const { createOrderMock } = vi.hoisted(() => ({ createOrderMock: vi.fn() }));
+vi.mock("@/lib/order-client", () => ({
+  createOrder: createOrderMock,
+}));
 
 import { MAX_CART_QUANTITY, MIN_CART_QUANTITY, selectCartItemCount, selectCartTotal, useCartStore } from "./cart-store";
 
@@ -11,6 +22,7 @@ function makeSnapshot(overrides: Partial<RecipeSnapshot> = {}): RecipeSnapshot {
     id: crypto.randomUUID(),
     createdAt: Date.now(),
     baseDrinkId: "classic-espresso",
+    productId: "product-classic-espresso",
     baseDrinkCategory: "espresso",
     baseDrinkName: "Classic Espresso",
     selection: DEFAULT_SELECTION,
@@ -22,6 +34,7 @@ function makeSnapshot(overrides: Partial<RecipeSnapshot> = {}): RecipeSnapshot {
 
 function resetStore() {
   useCartStore.setState({ items: [], favorites: [], lastOrder: null });
+  createOrderMock.mockReset();
 }
 
 describe("useCartStore", () => {
@@ -162,24 +175,59 @@ describe("useCartStore", () => {
     expect(useCartStore.getState().items[0]?.snapshot.id).toBe(snapshot.id);
   });
 
-  it("placeOrder() returns null for an empty cart", () => {
-    expect(useCartStore.getState().placeOrder()).toBeNull();
+  it("placeOrder() returns null for an empty cart without calling the API", async () => {
+    await expect(useCartStore.getState().placeOrder("Ada Lovelace", "ada@example.com", "idem-key-1")).resolves.toBeNull();
+    expect(createOrderMock).not.toHaveBeenCalled();
   });
 
-  it("placeOrder() builds a CompletedOrder, clears the cart, sets lastOrder, and emits checkout:completed", () => {
+  it("placeOrder() submits the cart to the real API, clears it, sets lastOrder, and emits checkout:completed", async () => {
     useCartStore.getState().addItem(makeSnapshot(), 2);
+    const fakeOrder = {
+      id: "order-1",
+      orderNumber: "CS-000001",
+      status: "submitted",
+      customerId: null,
+      guestName: "Ada Lovelace",
+      guestEmail: "ada@example.com",
+      fulfillmentMethod: "pickup",
+      items: [{ id: "item-1", productId: "product-classic-espresso", productName: "Classic Espresso", sku: "ESP-001", selection: DEFAULT_SELECTION, unitPrice: 3.5, quantity: 2, lineTotal: 7, recommendationId: null }],
+      subtotal: 7,
+      total: 7,
+      timeline: [],
+      cancellationReason: null,
+      failureReason: null,
+      createdAtUtc: new Date().toISOString(),
+    };
+    createOrderMock.mockResolvedValueOnce(fakeOrder);
+
     const events: unknown[] = [];
     const unsub = appEvents.on("checkout:completed", (event) => events.push(event));
 
-    const order = useCartStore.getState().placeOrder();
+    const order = await useCartStore.getState().placeOrder("Ada Lovelace", "ada@example.com", "idem-key-2");
     unsub();
 
-    expect(order).not.toBeNull();
-    expect(order!.total).toBeCloseTo(7);
-    expect(order!.items).toHaveLength(1);
+    expect(order).toEqual(fakeOrder);
+    // The API call, not the client's own displayed price, is what actually placed the order —
+    // the client never sends unitPrice/total at all (mapCartItemsToOrderLines has no such field).
+    expect(createOrderMock).toHaveBeenCalledWith({
+      lines: [{ productId: "product-classic-espresso", selection: DEFAULT_SELECTION, quantity: 2, recommendationId: null }],
+      guestName: "Ada Lovelace",
+      guestEmail: "ada@example.com",
+      fulfillmentMethod: "Pickup",
+      idempotencyKey: "idem-key-2",
+    });
     expect(useCartStore.getState().items).toEqual([]);
-    expect(useCartStore.getState().lastOrder).toEqual(order);
-    expect(events).toEqual([{ name: "checkout:completed", orderId: order!.id }]);
+    expect(useCartStore.getState().lastOrder).toEqual(fakeOrder);
+    expect(events).toEqual([{ name: "checkout:completed", orderId: "order-1" }]);
+  });
+
+  it("placeOrder() propagates a failed API call without clearing the cart", async () => {
+    useCartStore.getState().addItem(makeSnapshot(), 1);
+    createOrderMock.mockRejectedValueOnce(new Error("network error"));
+
+    await expect(useCartStore.getState().placeOrder("Ada Lovelace", "ada@example.com", "idem-key-3")).rejects.toThrow("network error");
+    expect(useCartStore.getState().items).toHaveLength(1);
+    expect(useCartStore.getState().lastOrder).toBeNull();
   });
 
   it("selectCartItemCount sums quantities, not line count", () => {

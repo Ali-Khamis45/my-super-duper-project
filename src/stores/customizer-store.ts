@@ -76,6 +76,18 @@ interface CustomizerStoreState {
    * swatch UI the way color/size/ingredients are.
    */
   baseDrinkId: string;
+  /**
+   * Sprint 5.3 — the real backend `Product.Id`, threaded through from `useMenuQuery()`'s live
+   * catalog data (`productSummaryToDrink`), never the static `features/menu/data/drinks.ts`
+   * array — required before "Add to Cart" can build an orderable `RecipeSnapshot`
+   * (`buildRecipeSnapshot` returns `null` without one, the same "never fabricate a snapshot for
+   * a drink that doesn't exist" rule it already applied to `baseDrinkId`). `undefined` until the
+   * live menu has resolved (or when set via the AI Concierge's static-catalog
+   * `applyRecommendationToCustomizer`, which always hands off to `/customize?drink=` next —
+   * see `CustomizerExperience.tsx`'s own effect, which re-resolves against live data and
+   * overwrites this with the real id before any "Add to Cart" button is reachable).
+   */
+  baseDrinkProductId: string | undefined;
   baseDrinkCategory: DrinkCategoryId;
   /**
    * Sprint 3.6 — set when `features/concierge/`'s `applyRecommendationToCustomizer`
@@ -90,7 +102,7 @@ interface CustomizerStoreState {
   appliedRecommendationId: string | null;
   setPreview: (partial: Partial<CustomizerSelection> | null) => void;
   select: (category: CustomizerCategory, value: CustomizerSelection[CustomizerCategory], via: "click" | "keyboard") => void;
-  setBaseDrink: (drinkId: string, category: DrinkCategoryId) => void;
+  setBaseDrink: (drinkId: string, productId: string | undefined, category: DrinkCategoryId) => void;
   markRecommendationApplied: (recommendationId: string) => void;
   /**
    * Sprint 3.6 — "Editing items in the cart" rehydrates the customizer
@@ -100,7 +112,7 @@ interface CustomizerStoreState {
    * `features/cart/lib/buildRecipeSnapshot.ts` builds one, "no data
    * transformations or state reconstruction" in either direction.
    */
-  loadRecipeSnapshot: (baseDrinkId: string, baseDrinkCategory: DrinkCategoryId, selection: CustomizerSelection, appliedRecommendationId: string | null) => void;
+  loadRecipeSnapshot: (baseDrinkId: string, baseDrinkProductId: string | undefined, baseDrinkCategory: DrinkCategoryId, selection: CustomizerSelection, appliedRecommendationId: string | null) => void;
   addIngredient: (ingredientId: string) => void;
   removeIngredient: (ingredientId: string) => void;
   updateIngredientQuantity: (ingredientId: string, quantity: number) => void;
@@ -130,6 +142,7 @@ export const useCustomizerStore = create<CustomizerStoreState>()(
       historyIndex: 0,
       savedPresets: [],
       baseDrinkId: "classic-espresso",
+      baseDrinkProductId: undefined,
       baseDrinkCategory: "espresso",
       appliedRecommendationId: null,
 
@@ -144,14 +157,18 @@ export const useCustomizerStore = create<CustomizerStoreState>()(
         appEvents.emit({ name: "variant:selected", category, variantId: String(value), via });
       },
 
-      setBaseDrink: (drinkId, category) => {
+      setBaseDrink: (drinkId, productId, category) => {
         // A genuinely different drink invalidates any previously-applied
         // recommendation (it described the *old* drink); re-setting the
         // same drink (the concierge's own `?drink=` effect re-running,
-        // for instance) leaves it alone.
+        // for instance) leaves it alone. `baseDrinkProductId` is always
+        // re-set regardless — a same-drink call from `CustomizerExperience`'s
+        // live-data effect is exactly how a concierge-originated, static-catalog
+        // `undefined` productId gets replaced with the real one.
         const changingDrink = get().baseDrinkId !== drinkId;
         set({
           baseDrinkId: drinkId,
+          baseDrinkProductId: productId,
           baseDrinkCategory: category,
           appliedRecommendationId: changingDrink ? null : get().appliedRecommendationId,
         });
@@ -159,9 +176,9 @@ export const useCustomizerStore = create<CustomizerStoreState>()(
 
       markRecommendationApplied: (recommendationId) => set({ appliedRecommendationId: recommendationId }),
 
-      loadRecipeSnapshot: (baseDrinkId, baseDrinkCategory, selection, appliedRecommendationId) => {
+      loadRecipeSnapshot: (baseDrinkId, baseDrinkProductId, baseDrinkCategory, selection, appliedRecommendationId) => {
         const { history, historyIndex } = pushHistory(get().history, get().historyIndex, selection);
-        set({ selection, history, historyIndex, preview: null, baseDrinkId, baseDrinkCategory, appliedRecommendationId });
+        set({ selection, history, historyIndex, preview: null, baseDrinkId, baseDrinkProductId, baseDrinkCategory, appliedRecommendationId });
         appEvents.emit({ name: "recipe:changed", ingredientCount: selection.ingredients.length });
       },
 
@@ -288,6 +305,7 @@ export const useCustomizerStore = create<CustomizerStoreState>()(
         historyIndex: state.historyIndex,
         savedPresets: state.savedPresets,
         baseDrinkId: state.baseDrinkId,
+        baseDrinkProductId: state.baseDrinkProductId,
         baseDrinkCategory: state.baseDrinkCategory,
         appliedRecommendationId: state.appliedRecommendationId,
       }),

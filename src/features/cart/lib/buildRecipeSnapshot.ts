@@ -7,6 +7,8 @@ import type { RecipeSnapshot } from "../types";
 
 export interface BuildRecipeSnapshotInput {
   baseDrinkId: string;
+  /** Sprint 5.3 — the real backend `Product.Id` (`customizer-store`'s `baseDrinkProductId`). Missing/`undefined` means this snapshot returns `null`, same as an unresolvable `baseDrinkId` — a cart entry with no real product to order against is exactly the "fabricated snapshot" this function's own contract already refuses to build. */
+  productId: string | undefined;
   baseDrinkCategory: DrinkCategoryId;
   selection: CustomizerSelection;
   appliedRecommendationId: string | null;
@@ -29,7 +31,7 @@ export interface BuildRecipeSnapshotOptions {
  */
 export function buildRecipeSnapshot(input: BuildRecipeSnapshotInput, options: BuildRecipeSnapshotOptions = {}): RecipeSnapshot | null {
   const drink = resolveDrink(input.baseDrinkId);
-  if (!drink) return null;
+  if (!drink || !input.productId) return null;
 
   const ingredientsTotal = calculateIngredientsTotal(input.selection.ingredients);
   const unitPrice = drink.price + ingredientsTotal;
@@ -38,6 +40,7 @@ export function buildRecipeSnapshot(input: BuildRecipeSnapshotInput, options: Bu
     id: options.id ?? crypto.randomUUID(),
     createdAt: options.now ?? Date.now(),
     baseDrinkId: input.baseDrinkId,
+    productId: input.productId,
     baseDrinkCategory: input.baseDrinkCategory,
     baseDrinkName: drink.name,
     selection: input.selection,

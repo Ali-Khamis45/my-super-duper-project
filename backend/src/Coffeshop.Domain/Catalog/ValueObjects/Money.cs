@@ -55,6 +55,9 @@ public sealed class Money : ValueObject
 
     public static Money operator -(Money left, Money right) => left.Subtract(right);
 
+    /// <summary>Additive (Sprint 5.3) — <c>Coffeshop.Domain.Ordering.OrderItem.LineTotal</c>'s first real need for "one Money times a plain quantity," which arithmetic between two <see cref="Money"/> instances alone can't express.</summary>
+    public static Money operator *(Money money, int quantity) => Create(money.Amount * quantity, money.Currency);
+
     public static bool operator >(Money left, Money right)
     {
         left.RequireSameCurrency(right);

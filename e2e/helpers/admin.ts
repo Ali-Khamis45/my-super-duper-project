@@ -38,3 +38,12 @@ export function verifyAndPromoteToAdmin(email: string): void {
 export function verifyEmailOnly(email: string): void {
   psql(`UPDATE users SET is_email_verified = true WHERE email = '${email}'`);
 }
+
+/** Sprint 5.3 — same shape as `verifyAndPromoteToAdmin`, but the `Staff` role (`orders:view`/`orders:update-status` only) — the realistic role for Ordering's own admin pages, not full `Admin`. */
+export function verifyAndPromoteToStaff(email: string): void {
+  const staffRoleId = psql(`SELECT "Id" FROM roles WHERE name = 'Staff'`);
+  if (!staffRoleId) {
+    throw new Error("No 'Staff' role found in the dev database — is IdentitySeeder still seeding it under that name?");
+  }
+  psql(`UPDATE users SET is_email_verified = true, role_ids = array_append(role_ids, '${staffRoleId}'::uuid) WHERE email = '${email}'`);
+}

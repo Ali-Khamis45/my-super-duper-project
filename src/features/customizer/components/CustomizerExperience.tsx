@@ -63,7 +63,7 @@ export function CustomizerExperience({ drinkId }: CustomizerExperienceProps) {
     if (!drinkId || !drinks) return;
     const drink = drinks.find((entry) => entry.id === drinkId);
     if (!drink) return;
-    setBaseDrink(drink.id, drink.category);
+    setBaseDrink(drink.id, drink.productId, drink.category);
   }, [drinkId, drinks, setBaseDrink]);
 
   function handleDrop(event: React.DragEvent<HTMLDivElement>) {

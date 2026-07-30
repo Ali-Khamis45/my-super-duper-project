@@ -109,7 +109,15 @@ export const useConciergeStore = create<ConciergeStoreState>()(
         const drink = resolveDrink(recommendation.top.drinkId);
         if (!drink) return;
         const customizer = useCustomizerStore.getState();
-        customizer.setBaseDrink(drink.id, drink.category);
+        // `drink.productId` is `undefined` here — `resolveDrink` reads the static catalog
+        // (`features/menu/data/drinks.ts`), which predates the real backend and was never given
+        // real `Product.Id`s. Every real caller of this action (`RecommendationCard.tsx`,
+        // `RecommendationPanel.tsx`, `DrinkComparison.tsx`) navigates to `/customize?drink=`
+        // immediately after, and `CustomizerExperience.tsx`'s own effect re-resolves the same
+        // drink id against the live `useMenuQuery()` catalog and calls `setBaseDrink` again with
+        // the real productId — this static resolution is a same-tab transient handoff, never the
+        // value "Add to Cart" actually reads from.
+        customizer.setBaseDrink(drink.id, drink.productId, drink.category);
         for (const customization of recommendation.suggestedCustomizations) {
           customizer.addIngredient(customization.ingredientId);
         }

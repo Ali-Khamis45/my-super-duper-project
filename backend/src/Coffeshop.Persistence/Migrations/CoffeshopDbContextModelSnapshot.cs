@@ -25,6 +25,8 @@ namespace Coffeshop.Persistence.Migrations
             NpgsqlModelBuilderExtensions.HasPostgresExtension(modelBuilder, "pg_trgm");
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.HasSequence("order_number_seq");
+
             modelBuilder.Entity("Coffeshop.Domain.Catalog.Category", b =>
                 {
                     b.Property<Guid>("Id")
@@ -445,6 +447,97 @@ namespace Coffeshop.Persistence.Migrations
                     b.ToTable("users", (string)null);
                 });
 
+            modelBuilder.Entity("Coffeshop.Domain.Ordering.Order", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("CancellationReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("cancellation_reason");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at_utc");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<Guid?>("CustomerId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("customer_id");
+
+                    b.Property<DateTimeOffset?>("DeletedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at_utc");
+
+                    b.Property<string>("FailureReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("failure_reason");
+
+                    b.Property<string>("FulfillmentMethod")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("fulfillment_method");
+
+                    b.Property<string>("IdempotencyKey")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("idempotency_key");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_deleted");
+
+                    b.Property<DateTimeOffset?>("ModifiedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("modified_at_utc");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("modified_by");
+
+                    b.Property<string>("OrderNumber")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("order_number");
+
+                    b.Property<uint>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("status");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAtUtc");
+
+                    b.HasIndex("CustomerId");
+
+                    b.HasIndex("IdempotencyKey")
+                        .IsUnique()
+                        .HasFilter("idempotency_key IS NOT NULL");
+
+                    b.HasIndex("OrderNumber")
+                        .IsUnique();
+
+                    b.HasIndex("Status");
+
+                    b.ToTable("orders", (string)null);
+                });
+
             modelBuilder.Entity("Coffeshop.Persistence.Outbox.OutboxMessage", b =>
                 {
                     b.Property<Guid>("Id")
@@ -847,6 +940,219 @@ namespace Coffeshop.Persistence.Migrations
                     b.Navigation("PasswordResetTokens");
 
                     b.Navigation("RefreshTokens");
+                });
+
+            modelBuilder.Entity("Coffeshop.Domain.Ordering.Order", b =>
+                {
+                    b.OwnsMany("Coffeshop.Domain.Ordering.OrderItem", "Items", b1 =>
+                        {
+                            b1.Property<Guid>("Id")
+                                .HasColumnType("uuid");
+
+                            b1.Property<Guid>("OrderId")
+                                .HasColumnType("uuid");
+
+                            b1.Property<Guid>("ProductId")
+                                .HasColumnType("uuid")
+                                .HasColumnName("product_id");
+
+                            b1.Property<string>("ProductName")
+                                .IsRequired()
+                                .HasMaxLength(200)
+                                .HasColumnType("character varying(200)")
+                                .HasColumnName("product_name");
+
+                            b1.Property<int>("Quantity")
+                                .HasColumnType("integer")
+                                .HasColumnName("quantity");
+
+                            b1.Property<string>("RecommendationId")
+                                .HasMaxLength(100)
+                                .HasColumnType("character varying(100)")
+                                .HasColumnName("recommendation_id");
+
+                            b1.Property<string>("Selection")
+                                .IsRequired()
+                                .HasColumnType("jsonb")
+                                .HasColumnName("selection");
+
+                            b1.Property<string>("Sku")
+                                .IsRequired()
+                                .HasMaxLength(32)
+                                .HasColumnType("character varying(32)")
+                                .HasColumnName("sku");
+
+                            b1.HasKey("Id");
+
+                            b1.HasIndex("OrderId");
+
+                            b1.ToTable("order_items", (string)null);
+
+                            b1.WithOwner()
+                                .HasForeignKey("OrderId");
+
+                            b1.OwnsOne("Coffeshop.Domain.Catalog.ValueObjects.Money", "UnitPrice", b2 =>
+                                {
+                                    b2.Property<Guid>("OrderItemId")
+                                        .HasColumnType("uuid");
+
+                                    b2.Property<decimal>("Amount")
+                                        .HasColumnType("numeric(10,2)")
+                                        .HasColumnName("unit_price_amount");
+
+                                    b2.Property<string>("Currency")
+                                        .IsRequired()
+                                        .HasMaxLength(3)
+                                        .HasColumnType("character varying(3)")
+                                        .HasColumnName("unit_price_currency");
+
+                                    b2.HasKey("OrderItemId");
+
+                                    b2.ToTable("order_items");
+
+                                    b2.WithOwner()
+                                        .HasForeignKey("OrderItemId");
+                                });
+
+                            b1.Navigation("UnitPrice")
+                                .IsRequired();
+                        });
+
+                    b.OwnsMany("Coffeshop.Domain.Ordering.OrderTimelineEntry", "Timeline", b1 =>
+                        {
+                            b1.Property<Guid>("Id")
+                                .HasColumnType("uuid");
+
+                            b1.Property<string>("Note")
+                                .HasMaxLength(500)
+                                .HasColumnType("character varying(500)")
+                                .HasColumnName("note");
+
+                            b1.Property<DateTimeOffset>("OccurredAtUtc")
+                                .HasColumnType("timestamp with time zone")
+                                .HasColumnName("occurred_at_utc");
+
+                            b1.Property<Guid>("OrderId")
+                                .HasColumnType("uuid");
+
+                            b1.Property<int>("Sequence")
+                                .HasColumnType("integer")
+                                .HasColumnName("sequence");
+
+                            b1.Property<string>("Status")
+                                .IsRequired()
+                                .HasMaxLength(20)
+                                .HasColumnType("character varying(20)")
+                                .HasColumnName("status");
+
+                            b1.HasKey("Id");
+
+                            b1.HasIndex("OrderId");
+
+                            b1.ToTable("order_timeline_entries", (string)null);
+
+                            b1.WithOwner()
+                                .HasForeignKey("OrderId");
+                        });
+
+                    b.OwnsOne("Coffeshop.Domain.Ordering.ValueObjects.GuestOrderInfo", "GuestInfo", b1 =>
+                        {
+                            b1.Property<Guid>("OrderId")
+                                .HasColumnType("uuid");
+
+                            b1.Property<string>("Email")
+                                .IsRequired()
+                                .HasMaxLength(256)
+                                .HasColumnType("character varying(256)")
+                                .HasColumnName("guest_email");
+
+                            b1.Property<string>("Name")
+                                .IsRequired()
+                                .HasMaxLength(200)
+                                .HasColumnType("character varying(200)")
+                                .HasColumnName("guest_name");
+
+                            b1.HasKey("OrderId");
+
+                            b1.ToTable("orders");
+
+                            b1.WithOwner()
+                                .HasForeignKey("OrderId");
+                        });
+
+                    b.OwnsOne("Coffeshop.Domain.Ordering.ValueObjects.OrderTotals", "Totals", b1 =>
+                        {
+                            b1.Property<Guid>("OrderId")
+                                .HasColumnType("uuid");
+
+                            b1.HasKey("OrderId");
+
+                            b1.ToTable("orders");
+
+                            b1.WithOwner()
+                                .HasForeignKey("OrderId");
+
+                            b1.OwnsOne("Coffeshop.Domain.Catalog.ValueObjects.Money", "Subtotal", b2 =>
+                                {
+                                    b2.Property<Guid>("OrderTotalsOrderId")
+                                        .HasColumnType("uuid");
+
+                                    b2.Property<decimal>("Amount")
+                                        .HasColumnType("numeric(10,2)")
+                                        .HasColumnName("subtotal_amount");
+
+                                    b2.Property<string>("Currency")
+                                        .IsRequired()
+                                        .HasMaxLength(3)
+                                        .HasColumnType("character varying(3)")
+                                        .HasColumnName("subtotal_currency");
+
+                                    b2.HasKey("OrderTotalsOrderId");
+
+                                    b2.ToTable("orders");
+
+                                    b2.WithOwner()
+                                        .HasForeignKey("OrderTotalsOrderId");
+                                });
+
+                            b1.OwnsOne("Coffeshop.Domain.Catalog.ValueObjects.Money", "Total", b2 =>
+                                {
+                                    b2.Property<Guid>("OrderTotalsOrderId")
+                                        .HasColumnType("uuid");
+
+                                    b2.Property<decimal>("Amount")
+                                        .HasColumnType("numeric(10,2)")
+                                        .HasColumnName("total_amount");
+
+                                    b2.Property<string>("Currency")
+                                        .IsRequired()
+                                        .HasMaxLength(3)
+                                        .HasColumnType("character varying(3)")
+                                        .HasColumnName("total_currency");
+
+                                    b2.HasKey("OrderTotalsOrderId");
+
+                                    b2.ToTable("orders");
+
+                                    b2.WithOwner()
+                                        .HasForeignKey("OrderTotalsOrderId");
+                                });
+
+                            b1.Navigation("Subtotal")
+                                .IsRequired();
+
+                            b1.Navigation("Total")
+                                .IsRequired();
+                        });
+
+                    b.Navigation("GuestInfo");
+
+                    b.Navigation("Items");
+
+                    b.Navigation("Timeline");
+
+                    b.Navigation("Totals")
+                        .IsRequired();
                 });
 #pragma warning restore 612, 618
         }

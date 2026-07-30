@@ -1,5 +1,6 @@
 using Coffeshop.Application.Catalog.Interfaces;
 using Coffeshop.Application.Common.Interfaces;
+using Coffeshop.Application.Ordering.Interfaces;
 using Coffeshop.Persistence.Interceptors;
 using Coffeshop.Persistence.Repositories;
 using Coffeshop.Persistence.Search;
@@ -45,6 +46,7 @@ public static class DependencyInjection
         services.AddScoped<IProductRepository, ProductRepository>();
         services.AddScoped<ICategoryRepository, CategoryRepository>();
         services.AddScoped<IIngredientRepository, IngredientRepository>();
+        services.AddScoped<IOrderRepository, OrderRepository>();
         services.AddScoped<ISearchService, PostgresSearchService>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
 

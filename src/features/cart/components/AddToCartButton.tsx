@@ -37,6 +37,7 @@ const CONFIRMATION_DURATION_MS = 1200;
 export function AddToCartButton() {
   const selection = useCustomizerStore((state) => state.selection);
   const baseDrinkId = useCustomizerStore((state) => state.baseDrinkId);
+  const baseDrinkProductId = useCustomizerStore((state) => state.baseDrinkProductId);
   const baseDrinkCategory = useCustomizerStore((state) => state.baseDrinkCategory);
   const appliedRecommendationId = useCustomizerStore((state) => state.appliedRecommendationId);
   const addItem = useCartStore((state) => state.addItem);
@@ -53,7 +54,7 @@ export function AddToCartButton() {
   }, [justAdded]);
 
   function handleAddToCart() {
-    const snapshot = buildRecipeSnapshot({ baseDrinkId, baseDrinkCategory, selection, appliedRecommendationId });
+    const snapshot = buildRecipeSnapshot({ baseDrinkId, productId: baseDrinkProductId, baseDrinkCategory, selection, appliedRecommendationId });
     if (!snapshot) return;
     addItem(snapshot);
     setJustAdded(true);
@@ -82,7 +83,14 @@ export function AddToCartButton() {
 
   return (
     <>
-      <Button ref={buttonRef} type="button" onClick={handleAddToCart} className="w-full gap-2">
+      <Button
+        ref={buttonRef}
+        type="button"
+        onClick={handleAddToCart}
+        disabled={!baseDrinkProductId}
+        aria-label={baseDrinkProductId ? undefined : "Loading this drink's catalog details before it can be added to your cart"}
+        className="w-full gap-2"
+      >
         {justAdded ? <Check className="size-4" aria-hidden="true" /> : <ShoppingBag className="size-4" aria-hidden="true" />}
         {justAdded ? "Added" : "Add to Cart"}
       </Button>

@@ -25,4 +25,7 @@ public sealed class HttpCurrentUserService(IHttpContextAccessor httpContextAcces
     public string? IpAddress => httpContextAccessor.HttpContext?.Connection.RemoteIpAddress?.ToString();
 
     public string? UserAgent => httpContextAccessor.HttpContext?.Request.Headers.UserAgent.ToString();
+
+    public IReadOnlyCollection<string> Permissions =>
+        httpContextAccessor.HttpContext?.User.FindAll("permission").Select(c => c.Value).ToArray() ?? [];
 }

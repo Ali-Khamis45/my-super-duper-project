@@ -44,6 +44,17 @@ public sealed class ProductNotFoundException()
 public sealed class ProductArchivedException()
     : DomainException("This product is archived and cannot be modified. Restore it first.");
 
+/// <summary>
+/// Additive (Sprint 5.3) — thrown by <c>CreateOrderFromCartCommand</c> when a cart line
+/// references a real, existing product that isn't currently orderable (not `Published`, or
+/// `IsAvailable == false`). Distinct from <see cref="ProductNotFoundException"/>: the product
+/// genuinely exists (a stale client-side cart snapshot referencing it isn't nonsense), it's just
+/// not something the backend will let anyone actually order right now — the real "never trust
+/// client pricing/availability" check this sprint's own brief names explicitly.
+/// </summary>
+public sealed class ProductNotAvailableException()
+    : DomainException("This product is no longer available to order.");
+
 public sealed class InvalidIngredientCompatibilityException(string message) : DomainException(message);
 
 public sealed class InvalidProductStatusTransitionException(string message) : DomainException(message);

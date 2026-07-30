@@ -2,10 +2,10 @@
 
 import { AccessDenied } from "@/features/admin/components/AccessDenied";
 import { AdminNav } from "@/features/admin/components/AdminNav";
-import { useRequireManageProducts } from "@/features/admin/hooks/useRequireManageProducts";
+import { useRequireAdminAccess } from "@/features/admin/hooks/useRequireAdminAccess";
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  const guardState = useRequireManageProducts();
+  const guardState = useRequireAdminAccess();
 
   if (guardState === "checking" || guardState === "unauthenticated") {
     // "unauthenticated" redirects via the hook's own effect — this is the brief instant before

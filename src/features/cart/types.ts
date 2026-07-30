@@ -23,6 +23,8 @@ export interface RecipeSnapshot {
   id: string;
   createdAt: number;
   baseDrinkId: string;
+  /** Sprint 5.3 — the real backend `Product.Id`, required to submit this recipe through `CreateOrderFromCart`; see `buildRecipeSnapshot.ts`'s own doc comment for why a snapshot without one is never built at all. */
+  productId: string;
   baseDrinkCategory: DrinkCategoryId;
   /** Denormalized at snapshot time — a cart/favorite/order should still show what was actually ordered even if the live menu catalog's copy for this drink ever changes. */
   baseDrinkName: string;
@@ -36,11 +38,4 @@ export interface RecipeSnapshot {
 export interface CartItem {
   snapshot: RecipeSnapshot;
   quantity: number;
-}
-
-export interface CompletedOrder {
-  id: string;
-  placedAt: number;
-  items: CartItem[];
-  total: number;
 }

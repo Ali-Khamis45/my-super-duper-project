@@ -1,5 +1,6 @@
 using Coffeshop.Domain.Catalog.Exceptions;
 using Coffeshop.Domain.Identity.Exceptions;
+using Coffeshop.Domain.Ordering.Exceptions;
 using FluentValidation;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
@@ -68,6 +69,14 @@ public sealed class GlobalExceptionHandler(ILogger<GlobalExceptionHandler> logge
         ProductArchivedException or InvalidProductStatusTransitionException
             => (StatusCodes.Status409Conflict, exception.Message, "invalid-status-transition"),
         InvalidMoneyException or InvalidPriceException or InvalidSkuException or InvalidProductTagException or InvalidIngredientCompatibilityException
+            => (StatusCodes.Status400BadRequest, exception.Message, "invalid-input"),
+        ProductNotAvailableException => (StatusCodes.Status409Conflict, exception.Message, "product-not-available"),
+
+        // Ordering (Sprint 5.3) — same discipline as Catalog above.
+        OrderNotFoundException or OrderItemNotFoundException => (StatusCodes.Status404NotFound, exception.Message, "not-found"),
+        OrderNotEditableException or InvalidOrderStatusTransitionException
+            => (StatusCodes.Status409Conflict, exception.Message, "invalid-status-transition"),
+        EmptyOrderException or InvalidOrderIdentityException or InvalidGuestOrderInfoException or InvalidRecipeSelectionException or InvalidOrderNumberException
             => (StatusCodes.Status400BadRequest, exception.Message, "invalid-input"),
 
         // A genuine concurrent-write conflict (two admins editing the same product at once) —

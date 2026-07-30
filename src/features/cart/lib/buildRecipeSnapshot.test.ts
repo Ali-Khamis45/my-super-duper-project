@@ -11,6 +11,18 @@ describe("buildRecipeSnapshot", () => {
   it("returns null for an unresolvable drink id — never fabricates a snapshot", () => {
     const snapshot = buildRecipeSnapshot({
       baseDrinkId: "not-a-real-drink",
+      productId: "product-x",
+      baseDrinkCategory: "espresso",
+      selection: DEFAULT_SELECTION,
+      appliedRecommendationId: null,
+    });
+    expect(snapshot).toBeNull();
+  });
+
+  it("returns null when productId hasn't resolved yet — never builds an unorderable snapshot", () => {
+    const snapshot = buildRecipeSnapshot({
+      baseDrinkId: "mocha",
+      productId: undefined,
       baseDrinkCategory: "espresso",
       selection: DEFAULT_SELECTION,
       appliedRecommendationId: null,
@@ -22,6 +34,7 @@ describe("buildRecipeSnapshot", () => {
     const snapshot = buildRecipeSnapshot(
       {
         baseDrinkId: "mocha",
+        productId: "product-mocha",
         baseDrinkCategory: "espresso",
         selection: { ...DEFAULT_SELECTION, ingredients: [{ ingredientId: "cream", quantity: 1 }] },
         appliedRecommendationId: null,
@@ -30,6 +43,7 @@ describe("buildRecipeSnapshot", () => {
     );
     expect(snapshot).not.toBeNull();
     expect(snapshot!.baseDrinkName).toBe("Mocha");
+    expect(snapshot!.productId).toBe("product-mocha");
     // mocha: $5.50, cream: 0.75
     expect(snapshot!.unitPrice).toBeCloseTo(5.5 + 0.75);
   });
@@ -37,6 +51,7 @@ describe("buildRecipeSnapshot", () => {
   it("is deterministic for fixed id/now, and carries the full selection verbatim (no data transformation)", () => {
     const input = {
       baseDrinkId: "classic-espresso",
+      productId: "product-classic-espresso",
       baseDrinkCategory: "espresso" as const,
       selection: { ...DEFAULT_SELECTION, color: "charcoal" as const },
       appliedRecommendationId: "rec-42",
@@ -53,6 +68,7 @@ describe("buildRecipeSnapshot", () => {
   it("generates a real id/timestamp when none is supplied", () => {
     const snapshot = buildRecipeSnapshot({
       baseDrinkId: "classic-espresso",
+      productId: "product-classic-espresso",
       baseDrinkCategory: "espresso",
       selection: DEFAULT_SELECTION,
       appliedRecommendationId: null,

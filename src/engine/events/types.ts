@@ -46,7 +46,23 @@ export type AppEvent =
   | { name: "uniform:updated"; uniform: string }
   | { name: "ai:recommendation-ready"; recommendationId: string }
   | { name: "checkout:started"; cartTotal: number }
+  /** Fires once `cart-store.ts`'s `placeOrder()` gets a real `OrderDto` back from `POST /api/v1/orders` — covers the backend's own `OrderCreatedEvent`+`OrderSubmittedEvent` pair (this project's one real checkout flow always creates-and-submits atomically, so one frontend event, not two). */
   | { name: "checkout:completed"; orderId: string }
+  /**
+   * Sprint 5.3 — the real order-lifecycle actions `features/orders/`/`features/admin/orders/`
+   * actually build: a customer or staff member cancelling an order (`/orders/[id]`,
+   * `/admin/orders/[id]`), and staff recording a payment/completion/failure
+   * (`/admin/orders/[id]` only). Mirrors the backend's own `Order.Cancel`/`MarkPaid`/
+   * `MarkCompleted`/`Fail` domain events by name — `order:refunded`/`order:timeline-updated`/
+   * `order:item-added`/`order:item-removed` are deliberately not added here: no refund UI, and no
+   * "edit an already-submitted order's items" UI exists this sprint (see
+   * `docs/32_COMMERCE_EVENT_CATALOG.md`'s own note on why the backend doesn't emit a distinct
+   * refund event either).
+   */
+  | { name: "order:cancelled"; orderId: string }
+  | { name: "order:paid"; orderId: string }
+  | { name: "order:completed"; orderId: string }
+  | { name: "order:failed"; orderId: string }
   | { name: "customizer:opened" }
   | { name: "customizer:closed" }
   | { name: "variant:selected"; category: string; variantId: string; via: "click" | "keyboard" }

@@ -1,6 +1,7 @@
 using System.Reflection;
 using Coffeshop.Domain.Catalog;
 using Coffeshop.Domain.Identity;
+using Coffeshop.Domain.Ordering;
 using Coffeshop.Persistence.Outbox;
 using Microsoft.EntityFrameworkCore;
 
@@ -24,11 +25,17 @@ public sealed class CoffeshopDbContext(DbContextOptions<CoffeshopDbContext> opti
 
     public DbSet<Product> Products => Set<Product>();
 
+    public DbSet<Order> Orders => Set<Order>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         // Required by ProductConfiguration's trigram (`gin_trgm_ops`) index — per
         // docs/34_PAYMENTS_NOTIFICATIONS_SEARCH.md's fuzzy/typo-tolerant matching requirement.
         modelBuilder.HasPostgresExtension("pg_trgm");
+
+        // A real Postgres sequence, not an application-level counter — see
+        // Coffeshop.Domain.Ordering.ValueObjects.OrderNumber's own doc comment for why.
+        modelBuilder.HasSequence<long>("order_number_seq").StartsAt(1).IncrementsBy(1);
 
         modelBuilder.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly());
         base.OnModelCreating(modelBuilder);

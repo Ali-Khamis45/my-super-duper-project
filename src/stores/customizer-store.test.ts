@@ -12,6 +12,7 @@ function resetStore() {
     historyIndex: 0,
     savedPresets: [],
     baseDrinkId: "classic-espresso",
+    baseDrinkProductId: undefined,
     baseDrinkCategory: "espresso",
     appliedRecommendationId: null,
   });
@@ -135,9 +136,10 @@ describe("useCustomizerStore", () => {
 
   describe("ingredient actions (Sprint 3.3)", () => {
     it("setBaseDrink() sets drink context without touching history", () => {
-      useCustomizerStore.getState().setBaseDrink("mocha", "espresso");
+      useCustomizerStore.getState().setBaseDrink("mocha", "product-mocha", "espresso");
       const state = useCustomizerStore.getState();
       expect(state.baseDrinkId).toBe("mocha");
+      expect(state.baseDrinkProductId).toBe("product-mocha");
       expect(state.baseDrinkCategory).toBe("espresso");
       expect(state.history).toHaveLength(1);
     });
@@ -296,7 +298,7 @@ describe("useCustomizerStore", () => {
     });
 
     it("baseDrinkId/baseDrinkCategory are not part of history — undo never reverts drink context", () => {
-      useCustomizerStore.getState().setBaseDrink("mocha", "espresso");
+      useCustomizerStore.getState().setBaseDrink("mocha", "product-mocha", "espresso");
       useCustomizerStore.getState().addIngredient("chocolate");
       useCustomizerStore.getState().undo();
       expect(useCustomizerStore.getState().baseDrinkId).toBe("mocha");
@@ -316,15 +318,21 @@ describe("useCustomizerStore", () => {
 
     it("setBaseDrink() to a genuinely different drink clears it", () => {
       useCustomizerStore.getState().markRecommendationApplied("rec-1");
-      useCustomizerStore.getState().setBaseDrink("mocha", "espresso");
+      useCustomizerStore.getState().setBaseDrink("mocha", "product-mocha", "espresso");
       expect(useCustomizerStore.getState().appliedRecommendationId).toBeNull();
     });
 
     it("setBaseDrink() to the same drink id leaves it untouched", () => {
-      useCustomizerStore.getState().setBaseDrink("mocha", "espresso");
+      useCustomizerStore.getState().setBaseDrink("mocha", "product-mocha", "espresso");
       useCustomizerStore.getState().markRecommendationApplied("rec-1");
-      useCustomizerStore.getState().setBaseDrink("mocha", "espresso");
+      useCustomizerStore.getState().setBaseDrink("mocha", "product-mocha", "espresso");
       expect(useCustomizerStore.getState().appliedRecommendationId).toBe("rec-1");
+    });
+
+    it("setBaseDrink() re-affirming the same drink id still updates baseDrinkProductId — the live-data re-resolution path", () => {
+      useCustomizerStore.getState().setBaseDrink("mocha", undefined, "espresso");
+      useCustomizerStore.getState().setBaseDrink("mocha", "product-mocha", "espresso");
+      expect(useCustomizerStore.getState().baseDrinkProductId).toBe("product-mocha");
     });
   });
 });
