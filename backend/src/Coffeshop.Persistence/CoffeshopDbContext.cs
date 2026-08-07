@@ -1,6 +1,7 @@
 using System.Reflection;
 using Coffeshop.Domain.Catalog;
 using Coffeshop.Domain.Identity;
+using Coffeshop.Domain.Inventory;
 using Coffeshop.Domain.Ordering;
 using Coffeshop.Persistence.Outbox;
 using Microsoft.EntityFrameworkCore;
@@ -26,6 +27,12 @@ public sealed class CoffeshopDbContext(DbContextOptions<CoffeshopDbContext> opti
     public DbSet<Product> Products => Set<Product>();
 
     public DbSet<Order> Orders => Set<Order>();
+
+    public DbSet<InventoryItem> InventoryItems => Set<InventoryItem>();
+
+    public DbSet<InventoryReservation> InventoryReservations => Set<InventoryReservation>();
+
+    public DbSet<InventoryTransaction> InventoryTransactions => Set<InventoryTransaction>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

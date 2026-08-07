@@ -1,5 +1,6 @@
 using Coffeshop.Application.Common.Interfaces;
 using Coffeshop.Application.Common.Messaging;
+using Coffeshop.Application.Inventory.Coordination;
 using Coffeshop.Application.Ordering.Dtos;
 using Coffeshop.Application.Ordering.Interfaces;
 using Coffeshop.Application.Ordering.Mapping;
@@ -20,13 +21,22 @@ public sealed class FailOrderCommandValidator : AbstractValidator<FailOrderComma
     }
 }
 
-internal sealed class FailOrderCommandHandler(IOrderRepository orderRepository, IClock clock)
+internal sealed class FailOrderCommandHandler(
+    IOrderRepository orderRepository,
+    IInventoryReservationCoordinator inventoryReservationCoordinator,
+    IClock clock)
     : IRequestHandler<FailOrderCommand, OrderDto>
 {
     public async Task<OrderDto> Handle(FailOrderCommand request, CancellationToken ct)
     {
         var order = await orderRepository.GetByIdAsync(request.OrderId, ct) ?? throw new OrderNotFoundException();
-        order.Fail(clock.UtcNow, request.Reason);
+
+        var now = clock.UtcNow;
+        order.Fail(now, request.Reason);
+
+        // Payment didn't go through — release, not consume, the same as cancellation.
+        await inventoryReservationCoordinator.ReleaseForOrderAsync(order.Id, now, ct);
+
         return order.ToDto();
     }
 }

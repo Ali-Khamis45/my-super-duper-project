@@ -31,6 +31,7 @@ Routes: `app/orders/layout.tsx` (the `useRequireAuth` guard — any authenticate
 - **This feature owns**: the customer-facing order list/detail UI, its own query/mutation hooks, `OrderStatusBadge`/`OrderTimeline` (shared with `features/admin/orders/`, which imports them directly rather than duplicating the status→label mapping).
 - **This feature borrows from `lib/order-client.ts`**: every network call and the `OrderDto`/`OrderSummaryDto`/`OrderTimelineEntryDto` types — never a second copy of the wire shape.
 - **This feature does not own**: order creation (`features/cart/`'s `placeOrder()`), order status transitions beyond cancel (`features/admin/orders/`'s staff-only pay/complete/fail actions).
+- **A real Sprint 5.4 side effect, invisible here**: submitting/cancelling/paying/failing an order now also reserves/releases/consumes real ingredient stock, backend-side (`IInventoryReservationCoordinator`, called directly from the same Order command handlers this feature's own actions trigger). Nothing in this feature changed to support it — `POST /api/v1/orders` can now return a real `409 insufficient-stock` `ApiError` it couldn't before, which `features/cart/CheckoutExperience.tsx`'s existing `err instanceof ApiError` error-message path already surfaces like any other order-creation failure, with no new code needed.
 
 ## Known simplifications
 

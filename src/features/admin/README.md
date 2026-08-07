@@ -7,7 +7,7 @@ Protected internal tooling for managing the Catalog: products (full CRUD, Draft�
 ```
 admin/
 ├── components/{AdminNav,AccessDenied}.tsx
-├── hooks/useRequireManageProducts.ts        the permission guard
+├── hooks/{useRequireAdminAccess,useRequireManageProducts,useRequireViewOrders,useRequireViewInventory}.ts
 ├── products/
 │   ├── components/{ProductTable,ProductFilters,ProductEditor,CreateProductForm}.tsx
 │   ├── hooks/{useAdminProductsQuery,useAdminProductQuery,useProductMutations}.ts
@@ -15,12 +15,18 @@ admin/
 ├── categories/
 │   ├── components/CategoryManager.tsx
 │   └── hooks/{useAdminCategoriesQuery,useCategoryMutations}.ts
-└── ingredients/
-    ├── components/IngredientManager.tsx
-    └── hooks/{useAdminIngredientsQuery,useIngredientCategoriesQuery,useIngredientMutations}.ts
+├── ingredients/
+│   ├── components/IngredientManager.tsx
+│   └── hooks/{useAdminIngredientsQuery,useIngredientCategoriesQuery,useIngredientMutations}.ts
+├── orders/
+│   ├── components/{AdminOrderTable,AdminOrderFilters,AdminOrderDetail}.tsx
+│   └── hooks/{useAdminOrdersQuery,useAdminOrderQuery,useOrderStatusMutations}.ts
+└── inventory/                                additive, Sprint 5.4
+    ├── components/{InventoryTable,InventoryFilters,InventoryDashboardSummary,InventoryStatusBadge,InventoryItemDetail,InventoryReservationsTable,InventoryReservationsFilters,ReservationStatusBadge}.tsx
+    └── hooks/{useAdminInventoryQuery,useAdminInventoryItemQuery,useInventoryDashboardQuery,useInventoryHistoryQuery,useInventoryReservationsQuery,useInventoryMutations}.ts
 ```
 
-Routes live at `app/admin/{layout,products/page,products/new/page,products/[id]/page,categories/page,ingredients/page}.tsx` — `app/admin/layout.tsx` is the one place the guard is applied; every page underneath it is automatically protected, not individually gated.
+Routes live at `app/admin/{layout,products/page,products/new/page,products/[id]/page,categories/page,ingredients/page,orders/page,orders/[id]/page,inventory/page,inventory/[id]/page,inventory/reservations/page}.tsx` — `app/admin/layout.tsx` is the one place the guard is applied; every page underneath it is automatically protected, not individually gated.
 
 ## Why the admin-facing hooks don't reuse the customer-facing ones
 
@@ -44,8 +50,11 @@ Routes live at `app/admin/{layout,products/page,products/new/page,products/[id]/
 - Image management is by URL, not a file upload — the real backend surface is `AddImageRequest(Url, AltText, IsPrimary)`; no blob/object storage exists in this architecture (see `docs/29_COMMERCE_ARCHITECTURE_FREEZE.md`), so a file-picker UI with nothing behind it would have been exactly the "placeholder implementation" this sprint's brief forbids.
 - No bulk actions beyond "Archive selected" — the one bulk action broadly meaningful across a mixed selection (Publish only applies to Drafts, Restore only to Archived, Delete only to Drafts); building four narrowly-applicable bulk buttons for this sprint's scope would have been speculative surface with unclear real use.
 - Anonymous visitors and non-admins both land on real, distinct states (`/login` redirect vs. `AccessDenied`) — no generic "not found" masking, since this is an internal tool, not a security boundary that benefits from hiding its own existence.
+- **Inventory has no "bulk adjustments" UI** despite Sprint 5.4's own Phase 6 brief naming one — the backend built no batch-adjustment command (`AdjustInventoryCommand` is single-item), and a client-side loop firing N individual requests behind one button would be exactly the kind of UI implying an atomic guarantee ("all N adjustments happened together") the backend can't actually provide (a partial failure mid-loop would leave some items adjusted and others not, silently). Left unbuilt rather than shipped dishonestly; a real batch command is the correct fix if this becomes a real staff need.
+- Inventory's "audit viewer" is the same `InventoryTransaction` history list shown two ways — a per-item "Recent activity" panel on `/admin/inventory/[id]` and, if a standalone cross-item view is ever needed, `useInventoryHistoryQuery` already supports calling it with no `inventoryItemId` filter. No separate standalone `/admin/inventory/history` route was built this sprint since the per-item view covers the one real staff workflow ("why does milk's balance look wrong") without a second page.
 
 ## Future extension
 
-- **Sprint 5.4 (Administration Platform)**: this feature's `AdminNav`/`useRequireManageProducts` guard shell is the one Sprint 5.4 extends with new sections (`/admin/orders`, `/admin/content`, `/admin/coupons`, `/admin/users`) — never rebuilt, per `docs/39_COMMERCE_IMPLEMENTATION_READINESS.md`'s Sprint 5.4 row.
+- **Sprint 5.4 (Inventory Platform, shipped)**: added `orders/` (Sprint 5.3, previously undocumented here) and `inventory/` — real stock tracking, reservations tied to the Order lifecycle, restock/adjust/mark-availability actions, a reservation viewer, and a dashboard summary. `AdminNav`/the guard shell pattern were extended, not rebuilt, per this feature's own established convention.
 - **A real featured-drinks toggle in the UI**: `SetFeaturedCommand`/`PUT /api/v1/products/{id}/featured` exist backend-side (real, tested), but no frontend client function calls it yet — same "no zero-consumer scaffolding" reasoning `menu-client.ts`'s own note on `getFeatured` explains: no featured section exists on the customer-facing home page to make a featured toggle meaningful yet, so the client-side write path was left unbuilt rather than added speculatively. Add both together the same milestone a real featured section gets built.
+- **Inventory bulk adjustments**: see "Known simplifications" above — needs a real backend batch command before a UI for it is honest to build.

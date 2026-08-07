@@ -63,6 +63,20 @@ export type AppEvent =
   | { name: "order:paid"; orderId: string }
   | { name: "order:completed"; orderId: string }
   | { name: "order:failed"; orderId: string }
+  /**
+   * Sprint 5.4 — the real staff actions `features/admin/inventory/` builds: restock/adjust/mark
+   * an item's availability. Mirrors the backend's own `InventoryItem.Restock`/`Adjust`/
+   * `MarkOutOfStock`/`MarkAvailable` domain events by name, the same "one frontend event per real
+   * UI-triggered mutation" discipline `order:*` above established.
+   * `inventory:reserved`/`-released`/`-consumed`/`-reservation-expired` are deliberately not
+   * added here: those happen as a side effect of Order lifecycle actions the frontend already has
+   * its own `order:*` events for (see `docs/32_COMMERCE_EVENT_CATALOG.md`'s own Sprint 5.4 note
+   * on why Inventory reservation isn't a separately-observable frontend moment).
+   */
+  | { name: "inventory:restocked"; inventoryItemId: string }
+  | { name: "inventory:adjusted"; inventoryItemId: string }
+  | { name: "inventory:marked-out-of-stock"; inventoryItemId: string }
+  | { name: "inventory:marked-available"; inventoryItemId: string }
   | { name: "customizer:opened" }
   | { name: "customizer:closed" }
   | { name: "variant:selected"; category: string; variantId: string; via: "click" | "keyboard" }

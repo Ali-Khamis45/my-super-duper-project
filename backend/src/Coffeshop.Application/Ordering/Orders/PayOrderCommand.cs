@@ -1,5 +1,6 @@
 using Coffeshop.Application.Common.Interfaces;
 using Coffeshop.Application.Common.Messaging;
+using Coffeshop.Application.Inventory.Coordination;
 using Coffeshop.Application.Ordering.Dtos;
 using Coffeshop.Application.Ordering.Interfaces;
 using Coffeshop.Application.Ordering.Mapping;
@@ -19,13 +20,24 @@ namespace Coffeshop.Application.Ordering.Orders;
 /// </summary>
 public sealed record PayOrderCommand(Guid OrderId) : ICommand<OrderDto>;
 
-internal sealed class PayOrderCommandHandler(IOrderRepository orderRepository, IClock clock)
+internal sealed class PayOrderCommandHandler(
+    IOrderRepository orderRepository,
+    IInventoryReservationCoordinator inventoryReservationCoordinator,
+    IClock clock)
     : IRequestHandler<PayOrderCommand, OrderDto>
 {
     public async Task<OrderDto> Handle(PayOrderCommand request, CancellationToken ct)
     {
         var order = await orderRepository.GetByIdAsync(request.OrderId, ct) ?? throw new OrderNotFoundException();
-        order.MarkPaid(clock.UtcNow);
+
+        var now = clock.UtcNow;
+        order.MarkPaid(now);
+
+        // The one real moment stock actually leaves the building, per this sprint's own brief:
+        // "Consumption occurs only after successful payment (not before)." Converts every active
+        // reservation into a permanent InventoryTransaction debit.
+        await inventoryReservationCoordinator.ConsumeForOrderAsync(order.Id, now, ct);
+
         return order.ToDto();
     }
 }

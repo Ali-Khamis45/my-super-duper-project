@@ -1,6 +1,7 @@
 using Coffeshop.Application.Catalog.Interfaces;
 using Coffeshop.Application.Common.Interfaces;
 using Coffeshop.Application.Common.Messaging;
+using Coffeshop.Application.Inventory.Coordination;
 using Coffeshop.Application.Ordering.Dtos;
 using Coffeshop.Application.Ordering.Interfaces;
 using Coffeshop.Application.Ordering.Mapping;
@@ -62,10 +63,20 @@ internal sealed class CreateOrderFromCartCommandHandler(
     IProductRepository productRepository,
     ICategoryRepository categoryRepository,
     IIngredientRepository ingredientRepository,
+    IInventoryReservationCoordinator inventoryReservationCoordinator,
     ICurrentUserService currentUserService,
     IClock clock)
     : IRequestHandler<CreateOrderFromCartCommand, OrderDto>
 {
+    /// <summary>
+    /// How long a submitted-but-unpaid order's ingredient stock is held before it's eligible for
+    /// lazy reclaim (see <c>IInventoryReservationRepository.GetExpiredActiveByInventoryItemIdAsync</c>'s
+    /// own doc comment) — long enough to cover this business's one real fulfillment path (walk-in
+    /// pickup, staff records payment at the counter shortly after), short enough that an
+    /// abandoned checkout doesn't hold real stock hostage indefinitely.
+    /// </summary>
+    private const int ReservationHoldHours = 24;
+
     public async Task<OrderDto> Handle(CreateOrderFromCartCommand request, CancellationToken ct)
     {
         // Checked first, before consuming a sequence value or doing any pricing/catalog work —
@@ -112,6 +123,14 @@ internal sealed class CreateOrderFromCartCommandHandler(
         var ingredientsByCode = (await ingredientRepository.GetAllAsync(ct)).ToDictionary(i => i.Code);
         var categoryCodesById = new Dictionary<Guid, string>();
 
+        // Aggregated once per real ingredient (Guid, resolved from the placement's string code)
+        // across every line — a Latte and a Cappuccino on the same order both drawing from the
+        // same milk produces one reservation request against milk, not two. Building this flat
+        // list here, not inside Inventory, is the Ordering-context translation
+        // docs/29_COMMERCE_ARCHITECTURE_FREEZE.md scenario 5 assigns to this side of the
+        // boundary — Inventory itself never needs to understand what a "recipe" is.
+        var ingredientQuantities = new Dictionary<Guid, int>();
+
         foreach (var line in request.Lines)
         {
             var product = await productRepository.GetByIdAsync(line.ProductId, ct) ?? throw new ProductNotFoundException();
@@ -149,6 +168,9 @@ internal sealed class CreateOrderFromCartCommandHandler(
                 // the underlying catalog data itself changed, never from a formula mismatch.
                 ingredientsTotal += ingredient.PriceModifier * placement.Quantity;
                 placements.Add(new RecipeIngredientPlacement(placement.IngredientId, placement.Quantity));
+
+                var requiredQuantity = placement.Quantity * line.Quantity;
+                ingredientQuantities[ingredient.Id] = ingredientQuantities.GetValueOrDefault(ingredient.Id) + requiredQuantity;
             }
 
             var selection = RecipeSelection.Create(line.Selection.Color, line.Selection.Size, line.Selection.Sleeve, line.Selection.Lid, line.Selection.Logo, line.Selection.Material, placements);
@@ -158,6 +180,19 @@ internal sealed class CreateOrderFromCartCommandHandler(
         }
 
         order.Submit(now);
+
+        // Reserved *before* the order is added to its own repository — a real, deliberate
+        // ordering, not an arbitrary one. IInventoryReservationCoordinator.ReserveForOrderAsync
+        // throws InsufficientStockException before mutating anything if any ingredient can't be
+        // covered (see that interface's own doc comment); calling it before Add(order) means a
+        // failure here leaves nothing tracked in the DbContext, so UnitOfWorkBehavior's
+        // exception-path SaveChangesAsync has nothing pending to persist — a real order is never
+        // created for a checkout attempt that fails stock validation. Reversing this order (Add
+        // first, reserve second) would let a failed reservation still leave a real, Submitted
+        // order behind, which is exactly the "fail gracefully" bug this sprint's own brief warns
+        // Phase 10's review to hunt for.
+        await inventoryReservationCoordinator.ReserveForOrderAsync(order.Id, ingredientQuantities, now, now.AddHours(ReservationHoldHours), ct);
+
         orderRepository.Add(order);
 
         // order.CreatedAtUtc is still default(DateTimeOffset) here: AuditableEntityInterceptor

@@ -5,4 +5,8 @@ export const PermissionCodes = {
   ViewOrders: "orders:view",
   /** Sprint 5.3 */
   UpdateOrderStatus: "orders:update-status",
+  /** Sprint 5.4 */
+  ViewInventory: "inventory:view",
+  /** Sprint 5.4 */
+  AdjustInventory: "inventory:adjust",
 } as const;

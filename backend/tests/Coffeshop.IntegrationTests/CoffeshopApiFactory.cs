@@ -54,6 +54,7 @@ public sealed class CoffeshopApiFactory : WebApplicationFactory<Program>, IAsync
         await context.Database.MigrateAsync();
         await IdentitySeeder.SeedAsync(context);
         await CatalogSeeder.SeedAsync(context);
+        await InventorySeeder.SeedAsync(context);
     }
 
     /// <summary>Test-only helper — grants the Admin role directly, mirroring the manual `psql` role-promotion used during this sprint's live verification, since no self-service "become admin" endpoint exists (correctly — that would be a real security hole).</summary>

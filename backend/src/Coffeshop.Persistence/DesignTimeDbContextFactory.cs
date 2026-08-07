@@ -14,7 +14,13 @@ public sealed class DesignTimeDbContextFactory : IDesignTimeDbContextFactory<Cof
     public CoffeshopDbContext CreateDbContext(string[] args)
     {
         var optionsBuilder = new DbContextOptionsBuilder<CoffeshopDbContext>();
-        optionsBuilder.UseNpgsql("Host=localhost;Database=coffeshop;Username=coffeshop;Password=coffeshop");
+        // Port 5540, not Npgsql's implicit 5432 default — docker-compose.yml maps this project's
+        // own postgres service to host port 5540 (avoiding a collision with other local
+        // projects' postgres containers on the default port). A real bug found during this
+        // sprint's Phase 4 migration work: the missing Port meant `dotnet ef database update`
+        // silently connected to a *different* project's postgres instance on 5432 and failed
+        // authentication there, not against this project's own database at all.
+        optionsBuilder.UseNpgsql("Host=localhost;Port=5540;Database=coffeshop;Username=coffeshop;Password=coffeshop");
 
         return new CoffeshopDbContext(optionsBuilder.Options);
     }

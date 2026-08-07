@@ -33,4 +33,16 @@ public interface IOrderRepository : IRepository<Order, Guid>
 
     /// <summary>Additive (Phase 10) — backs <c>CreateOrderFromCartCommandHandler</c>'s duplicate-submission check; see <c>Order.IdempotencyKey</c>'s own doc comment.</summary>
     Task<Order?> GetByIdempotencyKeyAsync(string idempotencyKey, CancellationToken ct);
+
+    /// <summary>
+    /// Additive (Sprint 5.4) — a real, deliberate cross-bounded-context dependency: Inventory's
+    /// own <c>InventoryReservationsQuery</c>/<c>ExpireReservationCommand</c> need to display a
+    /// reservation's real, human-readable order number (<c>"CS-000042"</c>), the identifier staff
+    /// actually work with, not the raw <c>OrderId</c> Guid <c>InventoryReservation</c>
+    /// stores internally — the same "a handler may directly inject another bounded context's own
+    /// repository for a real display need" precedent <c>CreateOrderFromCartCommandHandler</c>
+    /// already established reading Catalog's <c>IIngredientRepository</c>/<c>IProductRepository</c>
+    /// directly. One batched lookup, not one query per reservation row.
+    /// </summary>
+    Task<IReadOnlyDictionary<Guid, string>> GetOrderNumbersByIdsAsync(IEnumerable<Guid> orderIds, CancellationToken ct);
 }

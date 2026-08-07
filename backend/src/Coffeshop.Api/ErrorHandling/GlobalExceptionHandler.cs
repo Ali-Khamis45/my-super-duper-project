@@ -1,5 +1,6 @@
 using Coffeshop.Domain.Catalog.Exceptions;
 using Coffeshop.Domain.Identity.Exceptions;
+using Coffeshop.Domain.Inventory.Exceptions;
 using Coffeshop.Domain.Ordering.Exceptions;
 using FluentValidation;
 using Microsoft.AspNetCore.Diagnostics;
@@ -77,6 +78,14 @@ public sealed class GlobalExceptionHandler(ILogger<GlobalExceptionHandler> logge
         OrderNotEditableException or InvalidOrderStatusTransitionException
             => (StatusCodes.Status409Conflict, exception.Message, "invalid-status-transition"),
         EmptyOrderException or InvalidOrderIdentityException or InvalidGuestOrderInfoException or InvalidRecipeSelectionException or InvalidOrderNumberException
+            => (StatusCodes.Status400BadRequest, exception.Message, "invalid-input"),
+
+        // Inventory (Sprint 5.4) — same discipline as Catalog/Ordering above.
+        InventoryItemNotFoundException or InventoryReservationNotFoundException => (StatusCodes.Status404NotFound, exception.Message, "not-found"),
+        InventoryItemAlreadyExistsException => (StatusCodes.Status409Conflict, exception.Message, "already-exists"),
+        InsufficientStockException => (StatusCodes.Status409Conflict, exception.Message, "insufficient-stock"),
+        InvalidReservationStatusException => (StatusCodes.Status409Conflict, exception.Message, "invalid-status-transition"),
+        InvalidQuantityException or NegativeStockException or InvalidLowStockPolicyException
             => (StatusCodes.Status400BadRequest, exception.Message, "invalid-input"),
 
         // A genuine concurrent-write conflict (two admins editing the same product at once) —

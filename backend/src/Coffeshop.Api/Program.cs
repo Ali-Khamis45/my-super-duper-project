@@ -1,6 +1,7 @@
 using Coffeshop.Api;
 using Coffeshop.Api.Endpoints.Auth;
 using Coffeshop.Api.Endpoints.Catalog;
+using Coffeshop.Api.Endpoints.Inventory;
 using Coffeshop.Api.Endpoints.Ordering;
 using Coffeshop.Infrastructure.Logging;
 using Coffeshop.Persistence;
@@ -66,6 +67,7 @@ if (app.Environment.IsDevelopment())
         await context.Database.MigrateAsync();
         await IdentitySeeder.SeedAsync(context);
         await CatalogSeeder.SeedAsync(context);
+        await InventorySeeder.SeedAsync(context);
     }
 
     app.UseSwagger();
@@ -96,6 +98,7 @@ app.MapCategoryEndpoints();
 app.MapIngredientEndpoints();
 app.MapSearchEndpoints();
 app.MapOrderEndpoints();
+app.MapInventoryEndpoints();
 
 app.Run();
 

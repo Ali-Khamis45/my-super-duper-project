@@ -1,5 +1,6 @@
 using Coffeshop.Application.Common.Interfaces;
 using Coffeshop.Application.Common.Messaging;
+using Coffeshop.Application.Inventory.Coordination;
 using Coffeshop.Application.Ordering.Dtos;
 using Coffeshop.Application.Ordering.Interfaces;
 using Coffeshop.Application.Ordering.Mapping;
@@ -32,7 +33,11 @@ public sealed class CancelOrderCommandValidator : AbstractValidator<CancelOrderC
     }
 }
 
-internal sealed class CancelOrderCommandHandler(IOrderRepository orderRepository, ICurrentUserService currentUserService, IClock clock)
+internal sealed class CancelOrderCommandHandler(
+    IOrderRepository orderRepository,
+    IInventoryReservationCoordinator inventoryReservationCoordinator,
+    ICurrentUserService currentUserService,
+    IClock clock)
     : IRequestHandler<CancelOrderCommand, OrderDto>
 {
     public async Task<OrderDto> Handle(CancelOrderCommand request, CancellationToken ct)
@@ -46,7 +51,15 @@ internal sealed class CancelOrderCommandHandler(IOrderRepository orderRepository
             throw new OrderNotFoundException(); // Deliberately the same "not found" a real owner-check miss gets — never confirms an order id exists to a caller who has no business knowing that.
         }
 
-        order.Cancel(clock.UtcNow, request.Reason);
+        var now = clock.UtcNow;
+        order.Cancel(now, request.Reason);
+
+        // Releases whatever this order's own reservations were — a no-op for an order made
+        // entirely of untracked ingredients, per IInventoryReservationCoordinator's own doc
+        // comment. Runs after order.Cancel succeeds, never before: a cancellation that Order's
+        // own state machine rejects (e.g. already Completed) must never touch inventory at all.
+        await inventoryReservationCoordinator.ReleaseForOrderAsync(order.Id, now, ct);
+
         return order.ToDto();
     }
 }

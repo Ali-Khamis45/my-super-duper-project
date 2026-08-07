@@ -1,5 +1,6 @@
 using System.Reflection;
 using Coffeshop.Application.Common.Behaviors;
+using Coffeshop.Application.Inventory.Coordination;
 using FluentValidation;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
@@ -34,6 +35,11 @@ public static class DependencyInjection
         // successfully) — no error, no warning, just silence. Caught only by actually exercising
         // the API, not by any static check.
         services.AddValidatorsFromAssembly(assembly);
+
+        // internal, not public — its implementation is a plain in-process orchestrator over
+        // Application-layer repository interfaces, never called from outside this assembly. See
+        // IInventoryReservationCoordinator's own doc comment for why it isn't a MediatR command.
+        services.AddScoped<IInventoryReservationCoordinator, InventoryReservationCoordinator>();
 
         return services;
     }

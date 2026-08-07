@@ -45,6 +45,22 @@ public sealed class OrderRepository(CoffeshopDbContext context) : IOrderReposito
     public Task<Order?> GetByIdempotencyKeyAsync(string idempotencyKey, CancellationToken ct) =>
         context.Orders.FirstOrDefaultAsync(o => o.IdempotencyKey == idempotencyKey, ct);
 
+    public async Task<IReadOnlyDictionary<Guid, string>> GetOrderNumbersByIdsAsync(IEnumerable<Guid> orderIds, CancellationToken ct)
+    {
+        var ids = orderIds.Distinct().ToArray();
+        if (ids.Length == 0)
+        {
+            return new Dictionary<Guid, string>();
+        }
+
+        var orders = await context.Orders.AsNoTracking()
+            .Where(o => ids.Contains(o.Id))
+            .Select(o => new { o.Id, o.OrderNumber })
+            .ToListAsync(ct);
+
+        return orders.ToDictionary(o => o.Id, o => o.OrderNumber.Value);
+    }
+
     private static IQueryable<Order> ApplyFilter(IQueryable<Order> query, OrderFilter filter)
     {
         if (filter.CustomerId.HasValue)

@@ -1,6 +1,7 @@
 using Coffeshop.Application.Common.Dtos;
 using Coffeshop.Application.Common.Interfaces;
 using Coffeshop.Application.Catalog.Interfaces;
+using Coffeshop.Application.Inventory.Coordination;
 using Coffeshop.Application.Ordering.Dtos;
 using Coffeshop.Application.Ordering.Interfaces;
 using Coffeshop.Application.Ordering.Orders;
@@ -23,13 +24,14 @@ public sealed class CreateOrderFromCartCommandHandlerTests
     private readonly IProductRepository _productRepository = Substitute.For<IProductRepository>();
     private readonly ICategoryRepository _categoryRepository = Substitute.For<ICategoryRepository>();
     private readonly IIngredientRepository _ingredientRepository = Substitute.For<IIngredientRepository>();
+    private readonly IInventoryReservationCoordinator _inventoryReservationCoordinator = Substitute.For<IInventoryReservationCoordinator>();
     private readonly ICurrentUserService _currentUserService = Substitute.For<ICurrentUserService>();
     private readonly IClock _clock = Substitute.For<IClock>();
     private readonly CreateOrderFromCartCommandHandler _sut;
 
     public CreateOrderFromCartCommandHandlerTests()
     {
-        _sut = new CreateOrderFromCartCommandHandler(_orderRepository, _productRepository, _categoryRepository, _ingredientRepository, _currentUserService, _clock);
+        _sut = new CreateOrderFromCartCommandHandler(_orderRepository, _productRepository, _categoryRepository, _ingredientRepository, _inventoryReservationCoordinator, _currentUserService, _clock);
         _clock.UtcNow.Returns(new DateTimeOffset(2026, 1, 1, 12, 0, 0, TimeSpan.Zero));
         _orderRepository.NextOrderNumberAsync(Arg.Any<CancellationToken>()).Returns(1L);
         _ingredientRepository.GetAllAsync(Arg.Any<CancellationToken>()).Returns((IReadOnlyList<Ingredient>)[]);
@@ -200,13 +202,14 @@ public sealed class CreateOrderFromCartCommandHandlerTests
 public sealed class CancelOrderCommandHandlerTests
 {
     private readonly IOrderRepository _orderRepository = Substitute.For<IOrderRepository>();
+    private readonly IInventoryReservationCoordinator _inventoryReservationCoordinator = Substitute.For<IInventoryReservationCoordinator>();
     private readonly ICurrentUserService _currentUserService = Substitute.For<ICurrentUserService>();
     private readonly IClock _clock = Substitute.For<IClock>();
     private readonly CancelOrderCommandHandler _sut;
 
     public CancelOrderCommandHandlerTests()
     {
-        _sut = new CancelOrderCommandHandler(_orderRepository, _currentUserService, _clock);
+        _sut = new CancelOrderCommandHandler(_orderRepository, _inventoryReservationCoordinator, _currentUserService, _clock);
         _clock.UtcNow.Returns(DateTimeOffset.UtcNow);
     }
 
@@ -332,12 +335,13 @@ public sealed class GetOrderQueryHandlerTests
 public sealed class PayOrderCommandHandlerTests
 {
     private readonly IOrderRepository _orderRepository = Substitute.For<IOrderRepository>();
+    private readonly IInventoryReservationCoordinator _inventoryReservationCoordinator = Substitute.For<IInventoryReservationCoordinator>();
     private readonly IClock _clock = Substitute.For<IClock>();
     private readonly PayOrderCommandHandler _sut;
 
     public PayOrderCommandHandlerTests()
     {
-        _sut = new PayOrderCommandHandler(_orderRepository, _clock);
+        _sut = new PayOrderCommandHandler(_orderRepository, _inventoryReservationCoordinator, _clock);
         _clock.UtcNow.Returns(DateTimeOffset.UtcNow);
     }
 

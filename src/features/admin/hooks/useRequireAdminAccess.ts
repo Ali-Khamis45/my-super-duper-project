@@ -32,7 +32,9 @@ export function useRequireAdminAccess(): AdminGuardState {
   } else if (
     user.permissions.includes(PermissionCodes.ManageProducts) ||
     user.permissions.includes(PermissionCodes.ViewOrders) ||
-    user.permissions.includes(PermissionCodes.UpdateOrderStatus)
+    user.permissions.includes(PermissionCodes.UpdateOrderStatus) ||
+    user.permissions.includes(PermissionCodes.ViewInventory) ||
+    user.permissions.includes(PermissionCodes.AdjustInventory)
   ) {
     guardState = "allowed";
   } else {
