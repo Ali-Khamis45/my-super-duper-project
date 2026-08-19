@@ -105,10 +105,16 @@ test.describe.serial("authenticated customer (one shared account)", () => {
     expect(timelineText!.indexOf("Draft")).toBeLessThan(timelineText!.indexOf("Submitted"));
   });
 
-  test("can cancel their own paid order from Order Details", async ({ page }) => {
-    // Sprint 5.5 — checkout now real-pays via the Payments Platform before reaching
-    // /checkout/confirmation, so by the time this test opens Order Details the order is already
-    // "paid," not merely "submitted" (Order.Cancel's own CANCELLABLE_STATUSES allows both).
+  test("cancelling a paid order with a captured payment is blocked by the payment guard, not silently allowed", async ({ page }) => {
+    // Sprint 5.5 close-out, Step 3(a) — checkout now real-pays via the Payments Platform before
+    // reaching /checkout/confirmation, so by the time this test opens Order Details the order's
+    // payment is already captured (Succeeded), not merely reserved. `CancelOrderCommandHandler`
+    // deliberately throws `PaymentCapturedException` (409) rather than auto-refunding — a captured
+    // charge must be refunded first, then cancelled — see docs/reviews/sprint-5.5-review.md. The
+    // frontend has no client-side way to predict this (it doesn't know the payment's own status),
+    // so `canCancel` still shows the button for a "paid" order and surfaces the server's real
+    // rejection as an alert instead of guessing. This test previously asserted the pre-guard
+    // behavior (cancellation succeeding); it now asserts the guard itself.
     test.setTimeout(90_000);
     await skipOnboardingTour(page);
     await loginOnly(page, sharedCustomerEmail);
@@ -120,8 +126,13 @@ test.describe.serial("authenticated customer (one shared account)", () => {
     await page.waitForURL("**/orders/*");
 
     await page.getByRole("button", { name: "Cancel order" }).click();
-    await expect(page.getByText("Cancelled").first()).toBeVisible();
-    await expect(page.getByRole("button", { name: "Cancel order" })).toHaveCount(0);
+    await expect(
+      page.getByRole("alert").filter({ hasText: "This order has a captured payment and cannot be cancelled directly" }),
+    ).toBeVisible();
+    await expect(page.getByText("Paid").first()).toBeVisible();
+    // The order was never actually cancelled, so the button remains — a real retry surface, not a
+    // stuck UI. This is the intended contrast with the old, incorrect "button vanishes" assertion.
+    await expect(page.getByRole("button", { name: "Cancel order" })).toHaveCount(1);
   });
 
   test("cannot view another customer's order — sees the same not-found state as a bad id", async ({ page }) => {

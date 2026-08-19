@@ -72,7 +72,15 @@ test("checkout real-pays through /checkout/payment and lands on a working receip
   await expect(page.getByText("Mocha")).toBeVisible();
   await expect(page.getByText(/Charged to visa ending in 4242/)).toBeVisible();
 
-  expect(errors, `console errors: ${errors.join("\n")}`).toEqual([]);
+  // Same real, pre-existing, cross-browser HDR-fetch-abort race `cart.spec.ts` already filters
+  // (frozen Engine v1.0 asset-loading code, out of this sprint's scope under the Zero Rewrite
+  // Policy — see docs/reviews/sprint-3.6-review.md): navigating off the /customize canvas route
+  // while the HDRI environment texture is still mid-fetch can surface an aborted-fetch console
+  // error on Firefox/WebKit. This test didn't inherit that filter when it was written, so it
+  // failed the strict zero-errors assertion on an unrelated, already-documented flake.
+  const knownHdrRaceError = /Could not load .*\.hdr:/;
+  const unexpectedErrors = errors.filter((message) => !knownHdrRaceError.test(message));
+  expect(unexpectedErrors, `console errors: ${unexpectedErrors.join("\n")}`).toEqual([]);
 });
 
 test("revisiting /checkout/payment after a successful payment (back button) is a safe no-op, not a double charge", async ({ page }) => {
@@ -107,9 +115,11 @@ test("an authenticated customer sees a real succeeded payment in My Payments", a
   await expect(page.getByRole("heading", { name: "My Payments" })).toBeVisible();
   await expect(page.getByText("Succeeded")).toBeVisible();
 
-  // Rendered as `<Button render={<Link .../>}>` (PaymentHistoryList.tsx) — a real anchor tag
-  // under the hood, so its accessible role is "link", not "button".
-  await page.getByRole("link", { name: "Receipt" }).click();
+  // Rendered as `<Button nativeButton={false} render={<Link .../>}>` (PaymentHistoryList.tsx) —
+  // Base UI's `nativeButton={false}` explicitly adds `role="button"` to compensate for the
+  // non-native element (see `@base-ui/react`'s `useButton.js`), so the accessible role is
+  // "button", matching `OrderConfirmation.tsx`'s "View my orders" link/button precedent.
+  await page.getByRole("button", { name: "Receipt" }).click();
   await page.waitForURL("**/payments/*");
   await expect(page.getByRole("heading", { name: "Receipt" })).toBeVisible();
 });

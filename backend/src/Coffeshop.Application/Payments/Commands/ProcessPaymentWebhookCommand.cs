@@ -72,6 +72,22 @@ internal sealed class ProcessPaymentWebhookCommandHandler(
         // expected no-op, never re-applied.
         if (payment.Status != PaymentStatus.Processing)
         {
+            // A "succeeded" outcome arriving for a payment already marked Cancelled locally is
+            // not the ordinary already-resolved case above — CancelPaymentCommand only ever
+            // cancels this payment locally (IPaymentGateway has no cancel/void call today), so
+            // this means the charge actually completed at the gateway after the customer was
+            // told it was cancelled. Real money has moved that our own state doesn't reflect;
+            // this must surface loudly rather than disappear into the same no-op path as a
+            // routine duplicate/late-arriving webhook. No automated recovery here deliberately —
+            // this only logs so it can be reconciled/refunded by hand, since silently mutating
+            // payment/order state off a Cancelled payment risks compounding the inconsistency.
+            if (payment.Status == PaymentStatus.Cancelled && parsed.Outcome.Succeeded)
+            {
+                logger.LogError(
+                    "Payment {PaymentId} for order {OrderId} received a succeeded webhook (event {ProviderEventId}) after being locally cancelled — the gateway charge likely went through anyway and needs manual reconciliation/refund.",
+                    payment.Id, payment.OrderId, parsed.ProviderEventId);
+            }
+
             return Unit.Value;
         }
 

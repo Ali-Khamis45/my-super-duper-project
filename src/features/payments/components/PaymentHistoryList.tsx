@@ -54,7 +54,7 @@ export function PaymentHistoryList() {
               <span className="font-display">${payment.amount.toFixed(2)}</span>
               <PaymentStatusBadge status={payment.status} />
               {payment.status === "succeeded" && (
-                <Button size="sm" variant="ghost" render={<Link href={`/payments/${payment.id}`} />}>
+                <Button size="sm" variant="ghost" nativeButton={false} render={<Link href={`/payments/${payment.id}`} />}>
                   Receipt
                 </Button>
               )}

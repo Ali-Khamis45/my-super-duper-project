@@ -40,7 +40,7 @@ export function AdminPaymentTable({ payments, isLoading }: AdminPaymentTableProp
             </TableCell>
             <TableCell className="text-muted-foreground text-xs">{new Date(payment.createdAtUtc).toLocaleDateString()}</TableCell>
             <TableCell className="text-right">
-              <Button size="sm" variant="ghost" render={<Link href={`/admin/payments/${payment.id}`} />}>
+              <Button size="sm" variant="ghost" nativeButton={false} render={<Link href={`/admin/payments/${payment.id}`} />}>
                 View
               </Button>
             </TableCell>

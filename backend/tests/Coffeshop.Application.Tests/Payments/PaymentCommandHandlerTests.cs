@@ -377,6 +377,56 @@ public sealed class PaymentCommandHandlerTests
         await _emailSender.Received(1).SendOrderConfirmationAsync(order.GuestInfo!.Email, order.OrderNumber.Value, order.Totals.Total.Amount, Arg.Any<CancellationToken>());
     }
 
+    /// <summary>
+    /// Regression test for a real, previously-undisclosed gap found on review: CancelPaymentCommand
+    /// only ever cancels a Payment locally — IPaymentGateway has no cancel/void call at all — so a
+    /// charge that was genuinely still in flight at the gateway when a customer/staff cancelled
+    /// locally can still succeed for real afterward. Before this fix that later "succeeded" webhook
+    /// vanished into the same safe-no-op path as an ordinary already-resolved event, with nothing to
+    /// distinguish "resolved by ConfirmPaymentCommand" (fine) from "money moved after we told the
+    /// customer it didn't" (not fine). This only proves it now logs loudly and still never mutates
+    /// state off a Cancelled payment — a full gateway-level void is a larger change deliberately not
+    /// attempted here without the ability to compile/verify against the real Stripe SDK.
+    /// </summary>
+    [Fact]
+    public async Task ProcessWebhook_SucceededEventArrivesAfterLocalCancellation_LogsTheAnomalyAndStaysASafeNoOp()
+    {
+        var order = SubmittedOrder();
+        var payment = ProcessingPayment(order.Id);
+        var reference = payment.CurrentAttempt!.ProviderReference!.Value;
+        payment.Cancel(Now); // What CancelPaymentCommand itself does — a purely local cancellation.
+        var parsed = new ParsedWebhookEvent("evt_6", "payment_intent.succeeded", reference, order.Id, Success());
+        _paymentGateway.TryParseWebhook(Arg.Any<string>(), Arg.Any<string>()).Returns(parsed);
+        _idempotencyStore.TryReserveAsync("evt_6", Arg.Any<CancellationToken>()).Returns(true);
+        _paymentRepository.GetByOrderIdAsync(order.Id, Arg.Any<CancellationToken>()).Returns(payment);
+        // A hand-written recorder, not an NSubstitute proxy — NSubstitute can't generate a proxy
+        // for ILogger<T> closed over this internal handler type (Castle's dynamic-proxy assembly
+        // needs InternalsVisibleTo for a strong-named target, which Microsoft.Extensions.Logging.Abstractions
+        // is); a real, compiled class sidesteps that constraint entirely while still letting this
+        // test assert on what was actually logged.
+        var logger = new RecordingLogger<ProcessPaymentWebhookCommandHandler>();
+
+        var sut = new ProcessPaymentWebhookCommandHandler(_paymentRepository, _orderRepository, _userRepository, _paymentGateway, _idempotencyStore, _orderPaymentCoordinator, _emailSender, _clock, logger);
+        await sut.Handle(new ProcessPaymentWebhookCommand("payload", "sig"), CancellationToken.None);
+
+        payment.Status.Should().Be(PaymentStatus.Cancelled);
+        await _orderPaymentCoordinator.DidNotReceiveWithAnyArgs().OnPaymentSucceededAsync(default, default, default);
+        logger.Entries.Should().ContainSingle(e => e.Level == Microsoft.Extensions.Logging.LogLevel.Error && e.Message.Contains(payment.Id.ToString()));
+    }
+
+    /// <summary>A real, compiled <see cref="Microsoft.Extensions.Logging.ILogger{TCategoryName}"/> test double — see its own call site's comment for why this exists instead of an NSubstitute proxy.</summary>
+    private sealed class RecordingLogger<T> : Microsoft.Extensions.Logging.ILogger<T>
+    {
+        public List<(Microsoft.Extensions.Logging.LogLevel Level, string Message)> Entries { get; } = [];
+
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+        public bool IsEnabled(Microsoft.Extensions.Logging.LogLevel logLevel) => true;
+
+        public void Log<TState>(Microsoft.Extensions.Logging.LogLevel logLevel, Microsoft.Extensions.Logging.EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter) =>
+            Entries.Add((logLevel, formatter(state, exception)));
+    }
+
     [Fact]
     public async Task ProcessWebhook_AlreadyResolvedByConfirmPath_IsSafeNoOpAndNeverReAppliesTheOutcome()
     {
@@ -530,5 +580,40 @@ public sealed class PaymentCommandHandlerTests
 
         dto.Status.Should().Be("refunded");
         payment.RefundedAmount.Amount.Should().Be(5.00m);
+    }
+
+    /// <summary>Regression test for a real bug found on review: requesting a refund larger than what remains must be rejected before ever calling the real gateway. Previously the gateway call happened first and only Payment.Refund's own domain check caught an over-refund afterward — a real gateway refund could have processed before the local guard fired, leaving the gateway out of sync with a rolled-back local transaction.</summary>
+    [Fact]
+    public async Task RefundPayment_AmountExceedsRemaining_ThrowsBeforeEverCallingTheGateway()
+    {
+        var order = SubmittedOrder(5.00m);
+        var payment = ProcessingPayment(order.Id, 5.00m);
+        payment.CaptureAttempt(payment.CurrentAttempt!.Id, null, Now);
+        _paymentRepository.GetByIdAsync(payment.Id, Arg.Any<CancellationToken>()).Returns(payment);
+
+        var sut = new RefundPaymentCommandHandler(_paymentRepository, _orderRepository, _paymentGateway, _clock);
+        var act = () => sut.Handle(new RefundPaymentCommand(payment.Id, 10.00m, "requested"), CancellationToken.None);
+
+        await act.Should().ThrowAsync<InvalidRefundAmountException>();
+        await _paymentGateway.DidNotReceive().RefundAsync(Arg.Any<string>(), Arg.Any<decimal>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+        payment.RefundedAmount.Amount.Should().Be(0);
+    }
+
+    /// <summary>Regression test: a payment that's already fully Refunded must reject a second refund attempt before the gateway is ever touched, not just when there happens to be no captured attempt left to find.</summary>
+    [Fact]
+    public async Task RefundPayment_AlreadyFullyRefunded_ThrowsInvalidPaymentStatusExceptionBeforeEverCallingTheGateway()
+    {
+        var order = SubmittedOrder(5.00m);
+        var payment = ProcessingPayment(order.Id, 5.00m);
+        payment.CaptureAttempt(payment.CurrentAttempt!.Id, null, Now);
+        payment.Refund(Money.Create(5.00m), "requested", Now);
+        payment.Status.Should().Be(PaymentStatus.Refunded);
+        _paymentRepository.GetByIdAsync(payment.Id, Arg.Any<CancellationToken>()).Returns(payment);
+
+        var sut = new RefundPaymentCommandHandler(_paymentRepository, _orderRepository, _paymentGateway, _clock);
+        var act = () => sut.Handle(new RefundPaymentCommand(payment.Id, null, "requested again"), CancellationToken.None);
+
+        await act.Should().ThrowAsync<InvalidPaymentStatusException>();
+        await _paymentGateway.DidNotReceive().RefundAsync(Arg.Any<string>(), Arg.Any<decimal>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 }

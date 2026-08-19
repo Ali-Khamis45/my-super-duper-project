@@ -40,11 +40,29 @@ internal sealed class RefundPaymentCommandHandler(
     public async Task<PaymentDto> Handle(RefundPaymentCommand request, CancellationToken ct)
     {
         var payment = await paymentRepository.GetByIdAsync(request.PaymentId, ct) ?? throw new PaymentNotFoundException();
+
+        if (payment.Status is not (Domain.Payments.PaymentStatus.Succeeded or Domain.Payments.PaymentStatus.PartiallyRefunded))
+        {
+            throw new InvalidPaymentStatusException($"A payment in '{payment.Status}' status cannot be refunded.");
+        }
+
         var attempt = payment.Attempts.LastOrDefault(a => a.Status == Domain.Payments.PaymentAttemptStatus.Captured)
             ?? throw new InvalidPaymentStatusException("This payment has no captured attempt to refund.");
 
         var remaining = payment.Amount.Subtract(payment.RefundedAmount);
         var refundAmount = request.Amount ?? remaining.Amount;
+
+        // Validate the amount before ever touching the real gateway — a real bug found on
+        // review: this used to call paymentGateway.RefundAsync first and rely on Payment.Refund's
+        // own domain check to catch an over-refund only afterward. A request for more than what
+        // remains would have processed a real refund at the gateway (actual money moved) before
+        // the local guard ever fired, leaving the gateway's own state out of sync with a
+        // transaction that then rolled back locally. Checking here means a bad request never
+        // reaches the gateway at all.
+        if (refundAmount <= 0 || refundAmount > remaining.Amount)
+        {
+            throw new InvalidRefundAmountException($"Cannot refund {refundAmount:0.00} — only {remaining.Amount:0.00} remains refundable.");
+        }
 
         var outcome = await paymentGateway.RefundAsync(attempt.ProviderReference!.Value, refundAmount, payment.Amount.Currency, ct);
         if (!outcome.Succeeded)
