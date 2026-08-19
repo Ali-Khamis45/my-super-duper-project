@@ -34,6 +34,9 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
+# ad hoc local dev server logs (e.g. `npm run dev > frontend.log`) — never committed
+/*.log
+
 # env files (can opt-in for committing if needed)
 .env*
 
@@ -47,3 +50,5 @@ next-env.d.ts
 # Claude agent files
 .claude/
 
+
+backend/api.log

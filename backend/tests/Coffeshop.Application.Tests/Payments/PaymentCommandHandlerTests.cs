@@ -1,4 +1,5 @@
 using Coffeshop.Application.Common.Interfaces;
+using Coffeshop.Application.Common.Options;
 using Coffeshop.Application.Ordering.Interfaces;
 using Coffeshop.Application.Payments.Coordination;
 using Coffeshop.Application.Payments.Commands;
@@ -15,6 +16,7 @@ using FluentAssertions;
 using MediatR;
 using NSubstitute;
 using Xunit;
+using Microsoft.Extensions.Options;
 
 namespace Coffeshop.Application.Tests.Payments;
 
@@ -31,6 +33,7 @@ public sealed class PaymentCommandHandlerTests
     private readonly IEmailSender _emailSender = Substitute.For<IEmailSender>();
     private readonly ICurrentUserService _currentUserService = Substitute.For<ICurrentUserService>();
     private readonly IClock _clock = Substitute.For<IClock>();
+    private readonly IOptions<PaymentRetryOptions> _paymentRetryOptions = Options.Create(new PaymentRetryOptions());
 
     public PaymentCommandHandlerTests()
     {
@@ -72,7 +75,7 @@ public sealed class PaymentCommandHandlerTests
         _paymentGateway.CreateIntentAsync(order.Id, order.Totals.Total.Amount, order.Totals.Total.Currency, Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns(new CreateIntentResult("fake_pi_new", null, null));
 
-        var sut = new CreateCheckoutSessionCommandHandler(_paymentRepository, _orderRepository, _paymentGateway, _currentUserService, _clock);
+        var sut = new CreateCheckoutSessionCommandHandler(_paymentRepository, _orderRepository, _paymentGateway, _currentUserService, _clock, _paymentRetryOptions);
         var session = await sut.Handle(new CreateCheckoutSessionCommand(order.Id), CancellationToken.None);
 
         session.Status.Should().Be("started");
@@ -87,11 +90,36 @@ public sealed class PaymentCommandHandlerTests
         _orderRepository.GetByIdAsync(order.Id, Arg.Any<CancellationToken>()).Returns(order);
         _paymentRepository.GetByOrderIdAsync(order.Id, Arg.Any<CancellationToken>()).Returns(payment);
 
-        var sut = new CreateCheckoutSessionCommandHandler(_paymentRepository, _orderRepository, _paymentGateway, _currentUserService, _clock);
+        var sut = new CreateCheckoutSessionCommandHandler(_paymentRepository, _orderRepository, _paymentGateway, _currentUserService, _clock, _paymentRetryOptions);
         var session = await sut.Handle(new CreateCheckoutSessionCommand(order.Id), CancellationToken.None);
 
         session.PaymentId.Should().Be(payment.Id);
         await _paymentGateway.DidNotReceive().CreateIntentAsync(Arg.Any<Guid>(), Arg.Any<decimal>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    /// <summary>Regression test for the real, disclosed Sprint 5.5 gap: Payment.TimeoutAttempt had no caller at all, so a genuinely stuck Processing payment (client disconnected mid-confirm) could never recover through a normal retry. See CreateCheckoutSessionCommand's own doc comment and PaymentRetryOptions.</summary>
+    [Fact]
+    public async Task CreateCheckoutSession_ExistingProcessingPayment_StaleWellPastTheRetryWindow_TimesOutAndStartsAGenuinelyNewAttempt()
+    {
+        var order = SubmittedOrder();
+        var payment = ProcessingPayment(order.Id);
+        var staleAttemptId = payment.CurrentAttempt!.Id;
+        _orderRepository.GetByIdAsync(order.Id, Arg.Any<CancellationToken>()).Returns(order);
+        _paymentRepository.GetByOrderIdAsync(order.Id, Arg.Any<CancellationToken>()).Returns(payment);
+        _paymentGateway.CreateIntentAsync(order.Id, Arg.Any<decimal>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(new CreateIntentResult("fake_pi_new_after_timeout", null, null));
+
+        // Well past PaymentRetryOptions's own 15-minute default — a real abandoned attempt, not a double-click.
+        _clock.UtcNow.Returns(Now.AddMinutes(20));
+
+        var sut = new CreateCheckoutSessionCommandHandler(_paymentRepository, _orderRepository, _paymentGateway, _currentUserService, _clock, _paymentRetryOptions);
+        var session = await sut.Handle(new CreateCheckoutSessionCommand(order.Id), CancellationToken.None);
+
+        await _paymentGateway.Received(1).CreateIntentAsync(order.Id, Arg.Any<decimal>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+        payment.Attempts.Should().HaveCount(2);
+        payment.Attempts.First(a => a.Id == staleAttemptId).Status.Should().Be(PaymentAttemptStatus.TimedOut);
+        session.PaymentId.Should().Be(payment.Id);
+        session.AttemptId.Should().NotBe(staleAttemptId);
     }
 
     [Fact]
@@ -107,7 +135,7 @@ public sealed class PaymentCommandHandlerTests
         _paymentGateway.CreateIntentAsync(order.Id, Arg.Any<decimal>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns(new CreateIntentResult("fake_pi_retry", null, null));
 
-        var sut = new CreateCheckoutSessionCommandHandler(_paymentRepository, _orderRepository, _paymentGateway, _currentUserService, _clock);
+        var sut = new CreateCheckoutSessionCommandHandler(_paymentRepository, _orderRepository, _paymentGateway, _currentUserService, _clock, _paymentRetryOptions);
         await sut.Handle(new CreateCheckoutSessionCommand(order.Id), CancellationToken.None);
 
         payment.Attempts.Should().HaveCount(2);
@@ -120,7 +148,7 @@ public sealed class PaymentCommandHandlerTests
         var order = Order.Create(OrderNumber.FromSequenceValue(2), null, GuestOrderInfo.Create("Ada", "ada@example.com"), FulfillmentMethod.Pickup, Now);
         _orderRepository.GetByIdAsync(order.Id, Arg.Any<CancellationToken>()).Returns(order);
 
-        var sut = new CreateCheckoutSessionCommandHandler(_paymentRepository, _orderRepository, _paymentGateway, _currentUserService, _clock);
+        var sut = new CreateCheckoutSessionCommandHandler(_paymentRepository, _orderRepository, _paymentGateway, _currentUserService, _clock, _paymentRetryOptions);
         var act = () => sut.Handle(new CreateCheckoutSessionCommand(order.Id), CancellationToken.None);
 
         await act.Should().ThrowAsync<InvalidOrderStatusTransitionException>();
@@ -133,7 +161,7 @@ public sealed class PaymentCommandHandlerTests
         _orderRepository.GetByIdAsync(order.Id, Arg.Any<CancellationToken>()).Returns(order);
         _currentUserService.UserId.Returns(Guid.NewGuid());
 
-        var sut = new CreateCheckoutSessionCommandHandler(_paymentRepository, _orderRepository, _paymentGateway, _currentUserService, _clock);
+        var sut = new CreateCheckoutSessionCommandHandler(_paymentRepository, _orderRepository, _paymentGateway, _currentUserService, _clock, _paymentRetryOptions);
         var act = () => sut.Handle(new CreateCheckoutSessionCommand(order.Id), CancellationToken.None);
 
         await act.Should().ThrowAsync<OrderNotFoundException>();

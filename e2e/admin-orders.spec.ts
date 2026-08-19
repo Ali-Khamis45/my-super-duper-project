@@ -153,9 +153,19 @@ test("admin orders list filters by status", async ({ page }) => {
   // filtered-for status. Asserted against the actual result rows, not the select trigger's own
   // display text (which shows the raw lowercase filter value plus a decorative arrow glyph, not
   // the capitalized option label — not what this test is really checking).
-  const statusCells = page.locator("table tbody tr td:nth-child(5)");
-  const count = await statusCells.count();
-  for (let index = 0; index < count; index += 1) {
-    await expect(statusCells.nth(index)).toHaveText("Completed");
+  //
+  // Sprint 5.5 close-out — fixed a real, rare race found via live re-run: `count()` then a
+  // per-index `nth(i)` loop reads the row count once and re-queries the live DOM on every
+  // subsequent index (Playwright auto-retries `toHaveText` against the current DOM) — if the
+  // filtered query is still settling (this table shares real, accumulating dev-database state
+  // across every e2e run, not an isolated fixture), a row present at `count()` time can be gone
+  // by the time a later index's own retry runs, failing on a list the app actually rendered
+  // correctly. `allTextContents()` takes one single, atomic snapshot instead, after the filtered
+  // total has stabilized.
+  await expect(page.getByText(/\d+ total/)).toBeVisible();
+  const statuses = await page.locator("table tbody tr td:nth-child(5)").allTextContents();
+  expect(statuses.length).toBeGreaterThan(0);
+  for (const status of statuses) {
+    expect(status).toBe("Completed");
   }
 });

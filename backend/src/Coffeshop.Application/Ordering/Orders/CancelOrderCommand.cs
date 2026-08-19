@@ -4,8 +4,11 @@ using Coffeshop.Application.Inventory.Coordination;
 using Coffeshop.Application.Ordering.Dtos;
 using Coffeshop.Application.Ordering.Interfaces;
 using Coffeshop.Application.Ordering.Mapping;
+using Coffeshop.Application.Payments.Interfaces;
 using Coffeshop.Domain.Identity;
 using Coffeshop.Domain.Ordering.Exceptions;
+using Coffeshop.Domain.Payments;
+using Coffeshop.Domain.Payments.Exceptions;
 using FluentValidation;
 using MediatR;
 
@@ -35,6 +38,7 @@ public sealed class CancelOrderCommandValidator : AbstractValidator<CancelOrderC
 
 internal sealed class CancelOrderCommandHandler(
     IOrderRepository orderRepository,
+    IPaymentRepository paymentRepository,
     IInventoryReservationCoordinator inventoryReservationCoordinator,
     ICurrentUserService currentUserService,
     IClock clock)
@@ -49,6 +53,17 @@ internal sealed class CancelOrderCommandHandler(
         if (!isOwner && !isStaff)
         {
             throw new OrderNotFoundException(); // Deliberately the same "not found" a real owner-check miss gets — never confirms an order id exists to a caller who has no business knowing that.
+        }
+
+        // Real Sprint 5.5 gap, closed: Order.Cancel predates the Payments bounded context and has
+        // no awareness of it — cancelling a genuinely-charged order would silently strand the
+        // customer's money with no refund ever triggered. Guard before mutation, the same shape
+        // PayOrderCommandHandler's own PaymentInProgressException check already established for
+        // the symmetric in-progress case.
+        var payment = await paymentRepository.GetByOrderIdAsync(order.Id, ct);
+        if (payment is not null && payment.Status is PaymentStatus.Succeeded or PaymentStatus.PartiallyRefunded)
+        {
+            throw new PaymentCapturedException();
         }
 
         var now = clock.UtcNow;

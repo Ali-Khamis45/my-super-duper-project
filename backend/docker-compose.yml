@@ -30,7 +30,15 @@ services:
   mailhog:
     image: mailhog/mailhog
     ports:
-      - "1026:1025" # SMTP
+      # SMTP remapped off 1026 (Sprint 5.5): a stale Windows-level port binding on 1026
+      # (a `services.exe`-attributed listener alongside Docker's own real port-forwarder,
+      # confirmed via `Get-NetTCPConnection`/`Get-Process`) silently swallowed the SMTP
+      # handshake on this dev machine — reproduced with a plain SMTP client independent of
+      # any application code, and confirmed to survive a container restart, a full stack
+      # recreation, a Docker Desktop restart, and `wsl --shutdown`. Container-to-container
+      # SMTP on the *unmapped* port worked the entire time, proving Mailhog itself was never
+      # broken. 1029 had no such conflict. See docs/reviews/sprint-5.5-review.md.
+      - "1029:1025" # SMTP
       - "8026:8025" # Web UI
 
   seq:

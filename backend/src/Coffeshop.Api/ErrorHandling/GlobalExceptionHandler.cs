@@ -101,6 +101,7 @@ public sealed class GlobalExceptionHandler(ILogger<GlobalExceptionHandler> logge
         // See docs/36_SECURITY_MODEL.md's own Sprint 5.5 note.
         InvalidWebhookSignatureException => (StatusCodes.Status400BadRequest, exception.Message, "invalid-webhook-signature"),
         PaymentInProgressException => (StatusCodes.Status409Conflict, exception.Message, "payment-in-progress"),
+        PaymentCapturedException => (StatusCodes.Status409Conflict, exception.Message, "payment-captured"),
 
         // A genuine concurrent-write conflict (two admins editing the same product at once) —
         // EF Core's own xmin-backed optimistic concurrency check throwing this is the real

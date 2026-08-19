@@ -107,7 +107,9 @@ test("an authenticated customer sees a real succeeded payment in My Payments", a
   await expect(page.getByRole("heading", { name: "My Payments" })).toBeVisible();
   await expect(page.getByText("Succeeded")).toBeVisible();
 
-  await page.getByRole("button", { name: "Receipt" }).click();
+  // Rendered as `<Button render={<Link .../>}>` (PaymentHistoryList.tsx) — a real anchor tag
+  // under the hood, so its accessible role is "link", not "button".
+  await page.getByRole("link", { name: "Receipt" }).click();
   await page.waitForURL("**/payments/*");
   await expect(page.getByRole("heading", { name: "Receipt" })).toBeVisible();
 });

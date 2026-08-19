@@ -33,3 +33,7 @@ public sealed class InvalidWebhookSignatureException()
 /// <summary>Thrown by <c>PayOrderCommandHandler</c> when a real gateway <see cref="Payment"/> is already <see cref="PaymentStatus.Pending"/>/<see cref="PaymentStatus.Processing"/> against the same order — see that command's own doc comment for the real double-charge this prevents.</summary>
 public sealed class PaymentInProgressException()
     : DomainException("This order has a payment already in progress. Cancel it before recording payment by another means.");
+
+/// <summary>Thrown by <c>CancelOrderCommandHandler</c> when the owning order's <see cref="Payment"/> has already moved real money (<see cref="PaymentStatus.Succeeded"/>/<see cref="PaymentStatus.PartiallyRefunded"/>) — a real, disclosed Sprint 5.5 gap: <c>Order.Cancel</c> predates the Payments bounded context and has no awareness of it, so cancelling a genuinely-charged order would silently strand the customer's money with no refund ever triggered. Guards before mutation, the same shape <see cref="PaymentInProgressException"/> already established for <c>PayOrderCommandHandler</c>.</summary>
+public sealed class PaymentCapturedException()
+    : DomainException("This order has a captured payment and cannot be cancelled directly. Process a refund first, then cancel.");

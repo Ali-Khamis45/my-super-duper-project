@@ -202,6 +202,7 @@ public sealed class CreateOrderFromCartCommandHandlerTests
 public sealed class CancelOrderCommandHandlerTests
 {
     private readonly IOrderRepository _orderRepository = Substitute.For<IOrderRepository>();
+    private readonly Coffeshop.Application.Payments.Interfaces.IPaymentRepository _paymentRepository = Substitute.For<Coffeshop.Application.Payments.Interfaces.IPaymentRepository>();
     private readonly IInventoryReservationCoordinator _inventoryReservationCoordinator = Substitute.For<IInventoryReservationCoordinator>();
     private readonly ICurrentUserService _currentUserService = Substitute.For<ICurrentUserService>();
     private readonly IClock _clock = Substitute.For<IClock>();
@@ -209,8 +210,9 @@ public sealed class CancelOrderCommandHandlerTests
 
     public CancelOrderCommandHandlerTests()
     {
-        _sut = new CancelOrderCommandHandler(_orderRepository, _inventoryReservationCoordinator, _currentUserService, _clock);
+        _sut = new CancelOrderCommandHandler(_orderRepository, _paymentRepository, _inventoryReservationCoordinator, _currentUserService, _clock);
         _clock.UtcNow.Returns(DateTimeOffset.UtcNow);
+        _paymentRepository.GetByOrderIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns((Coffeshop.Domain.Payments.Payment?)null);
     }
 
     private static Order SubmittedOrderFor(Guid customerId)
@@ -272,6 +274,30 @@ public sealed class CancelOrderCommandHandlerTests
         var dto = await _sut.Handle(new CancelOrderCommand(order.Id, "Staff cancelled"), CancellationToken.None);
 
         dto.Status.Should().Be("cancelled");
+    }
+
+    /// <summary>Regression test for the real, disclosed Sprint 5.5 gap: Order.Cancel predates the Payments bounded context and would otherwise let a genuinely-charged order be cancelled with no refund ever triggered. See CancelOrderCommand's own doc comment and PaymentCapturedException.</summary>
+    [Fact]
+    public async Task Handle_OrderHasACapturedPayment_ThrowsPaymentCapturedExceptionRatherThanStrandingTheCharge()
+    {
+        var customerId = Guid.NewGuid();
+        var order = SubmittedOrderFor(customerId);
+        order.MarkPaid(DateTimeOffset.UtcNow);
+        _orderRepository.GetByIdAsync(order.Id, Arg.Any<CancellationToken>()).Returns(order);
+        _currentUserService.UserId.Returns(customerId);
+        _currentUserService.Permissions.Returns((IReadOnlyCollection<string>)[]);
+
+        var payment = Coffeshop.Domain.Payments.Payment.Create(
+            order.Id, Money.Create(4.50m), Coffeshop.Domain.Payments.PaymentProviderName.Fake,
+            Coffeshop.Domain.Payments.ValueObjects.IdempotencyKey.Create($"order-{order.Id}"), DateTimeOffset.UtcNow);
+        var attempt = payment.StartAttempt(Coffeshop.Domain.Payments.ValueObjects.PaymentProviderReference.Create("fake_pi_1"), DateTimeOffset.UtcNow);
+        payment.CaptureAttempt(attempt.Id, null, DateTimeOffset.UtcNow);
+        _paymentRepository.GetByOrderIdAsync(order.Id, Arg.Any<CancellationToken>()).Returns(payment);
+
+        var act = () => _sut.Handle(new CancelOrderCommand(order.Id, "Changed my mind"), CancellationToken.None);
+
+        await act.Should().ThrowAsync<Coffeshop.Domain.Payments.Exceptions.PaymentCapturedException>();
+        order.Status.Should().Be(OrderStatus.Paid);
     }
 }
 

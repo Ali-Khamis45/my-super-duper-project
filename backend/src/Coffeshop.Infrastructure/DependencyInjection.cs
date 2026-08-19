@@ -19,6 +19,7 @@ public static class DependencyInjection
         services.Configure<AuthOptions>(configuration.GetSection(AuthOptions.SectionName));
         services.Configure<SmtpOptions>(configuration.GetSection(SmtpOptions.SectionName));
         services.Configure<PaymentsOptions>(configuration.GetSection(PaymentsOptions.SectionName));
+        services.Configure<PaymentRetryOptions>(configuration.GetSection(PaymentRetryOptions.SectionName));
 
         services.AddSingleton<IClock, SystemClock>();
         services.AddTransient<IEmailSender, SmtpEmailSender>();
