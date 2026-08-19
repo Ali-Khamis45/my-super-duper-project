@@ -64,6 +64,20 @@ export type AppEvent =
   | { name: "order:completed"; orderId: string }
   | { name: "order:failed"; orderId: string }
   /**
+   * Sprint 5.5 — the real Payments Platform (`features/checkout/`), mirroring the backend's own
+   * `PaymentStartedEvent`/`PaymentRetryEvent`/`PaymentCapturedEvent`/`PaymentFailedEvent`/
+   * `PaymentRefundedEvent` by name, same "one frontend event per real UI-triggered mutation"
+   * discipline `order:*` above established. `payment:webhook-received` is deliberately not
+   * added here — a webhook is a server-to-server signal with no frontend-triggering UI action to
+   * mirror, same reasoning `inventory:reserved`/`-consumed` above were left out.
+   */
+  | { name: "payment:started"; paymentId: string; orderId: string }
+  | { name: "payment:retried"; paymentId: string; orderId: string }
+  | { name: "payment:succeeded"; paymentId: string; orderId: string }
+  | { name: "payment:declined"; paymentId: string; orderId: string; reason: string }
+  | { name: "payment:cancelled"; paymentId: string; orderId: string }
+  | { name: "payment:refunded"; paymentId: string; orderId: string; amount: number }
+  /**
    * Sprint 5.4 — the real staff actions `features/admin/inventory/` builds: restock/adjust/mark
    * an item's availability. Mirrors the backend's own `InventoryItem.Restock`/`Adjust`/
    * `MarkOutOfStock`/`MarkAvailable` domain events by name, the same "one frontend event per real

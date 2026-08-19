@@ -11,6 +11,7 @@ const TABS = [
   { href: "/admin/ingredients", label: "Ingredients" },
   { href: "/admin/orders", label: "Orders" },
   { href: "/admin/inventory", label: "Inventory" },
+  { href: "/admin/payments", label: "Payments" },
 ];
 
 /** A deliberately plainer chrome than the public `Navbar` — an internal tool, not a marketing surface, per the same distinction most real admin panels draw. */

@@ -132,7 +132,7 @@ test("checkout requires name and email before Place Order is enabled, and comple
 
   await placeOrderButton.click();
   await page.waitForURL("**/checkout/confirmation", { timeout: 20_000 });
-  await expect(page.getByRole("heading", { name: "Order confirmed" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Payment confirmed" })).toBeVisible();
   await expect(page.getByText(/order #/)).toBeVisible();
 
   // The cart is cleared after a completed order.
@@ -195,7 +195,7 @@ test.describe("reduced motion", () => {
     await page.getByLabel("Email").fill("ada@example.com");
     await page.getByRole("button", { name: /Place Order/ }).click();
     await page.waitForURL("**/checkout/confirmation", { timeout: 20_000 });
-    await expect(page.getByRole("heading", { name: "Order confirmed" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Payment confirmed" })).toBeVisible();
 
     // A real, pre-existing, cross-browser race exists where navigating off a
     // 3D-canvas route while the HDRI environment texture is still mid-fetch

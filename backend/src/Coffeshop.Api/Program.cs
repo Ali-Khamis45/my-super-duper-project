@@ -3,6 +3,7 @@ using Coffeshop.Api.Endpoints.Auth;
 using Coffeshop.Api.Endpoints.Catalog;
 using Coffeshop.Api.Endpoints.Inventory;
 using Coffeshop.Api.Endpoints.Ordering;
+using Coffeshop.Api.Endpoints.Payments;
 using Coffeshop.Infrastructure.Logging;
 using Coffeshop.Persistence;
 using Coffeshop.Persistence.Seed;
@@ -72,6 +73,11 @@ if (app.Environment.IsDevelopment())
 
     app.UseSwagger();
     app.UseSwaggerUI();
+
+    // Dev-only webhook simulator (see DevPaymentWebhookEndpoints' own doc comment) — never
+    // mapped outside Development, so it doesn't exist as an attack surface in any real
+    // deployment regardless of which IPaymentGateway is configured there.
+    app.MapDevPaymentWebhookEndpoints();
 }
 
 app.UseSerilogRequestLogging();
@@ -99,6 +105,7 @@ app.MapIngredientEndpoints();
 app.MapSearchEndpoints();
 app.MapOrderEndpoints();
 app.MapInventoryEndpoints();
+app.MapPaymentEndpoints();
 
 app.Run();
 

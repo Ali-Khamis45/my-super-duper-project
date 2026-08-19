@@ -19,6 +19,17 @@ namespace Coffeshop.Application.Common.Behaviors;
 /// security response never reached the database. "Mutate, then throw a business exception" is
 /// a legitimate, common domain pattern (docs/41's own exception-handling rules assume it), so
 /// the persistence layer has to support it, not just the pure happy path.
+///
+/// The recovery save deliberately uses <see cref="CancellationToken.None"/>, not the request's
+/// own token — a real bug found during this sprint's (5.5) manual verification: a client
+/// disconnecting mid-<c>ConfirmPaymentCommand</c> (e.g. closing the tab right after a capture)
+/// cancels <c>cancellationToken</c>, the handler's own awaits then throw
+/// <see cref="OperationCanceledException"/>, and passing that same cancelled token to the
+/// recovery <c>SaveChangesAsync</c> made it throw immediately too — silently discarding an
+/// already-succeeded payment capture (Order marked paid, reservation consumed, all in-memory
+/// only). The whole point of this recovery save is to persist a mutation that has *already
+/// happened*; whether the caller is still listening for the response is irrelevant to whether
+/// that mutation should reach the database.
 /// </summary>
 public sealed class UnitOfWorkBehavior<TRequest, TResponse>(
     IUnitOfWork unitOfWork,
@@ -50,7 +61,7 @@ public sealed class UnitOfWorkBehavior<TRequest, TResponse>(
             // (e.g. a revoke-all) is often exactly what needs to be durable.
             try
             {
-                await unitOfWork.SaveChangesAsync(cancellationToken);
+                await unitOfWork.SaveChangesAsync(CancellationToken.None);
             }
             catch (Exception saveException)
             {

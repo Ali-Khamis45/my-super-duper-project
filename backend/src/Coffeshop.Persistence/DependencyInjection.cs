@@ -3,7 +3,9 @@ using Coffeshop.Application.Common.Interfaces;
 using Coffeshop.Application.Inventory.Coordination;
 using Coffeshop.Application.Inventory.Interfaces;
 using Coffeshop.Application.Ordering.Interfaces;
+using Coffeshop.Application.Payments.Interfaces;
 using Coffeshop.Persistence.Interceptors;
+using Coffeshop.Persistence.Payments;
 using Coffeshop.Persistence.Repositories;
 using Coffeshop.Persistence.Search;
 using Microsoft.EntityFrameworkCore;
@@ -52,6 +54,8 @@ public static class DependencyInjection
         services.AddScoped<IInventoryItemRepository, InventoryItemRepository>();
         services.AddScoped<IInventoryReservationRepository, InventoryReservationRepository>();
         services.AddScoped<IInventoryTransactionRepository, InventoryTransactionRepository>();
+        services.AddScoped<IPaymentRepository, PaymentRepository>();
+        services.AddScoped<IIdempotencyStore, IdempotencyStore>();
         services.AddScoped<ISearchService, PostgresSearchService>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
 

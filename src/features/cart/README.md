@@ -12,7 +12,8 @@ cart/
 │   ├── MiniCart.tsx          Sheet-based quick preview
 │   ├── CartExperience.tsx    the full /cart page
 │   ├── CheckoutExperience.tsx  /checkout — order summary + name/email form
-│   ├── OrderConfirmation.tsx   /checkout/confirmation — the premium reveal
+│   ├── PaymentProcessing.tsx   /checkout/payment — the real charge step (Sprint 5.5)
+│   ├── OrderConfirmation.tsx   /checkout/confirmation — the premium reveal, now post-payment
 │   ├── CartItemRow.tsx       one line, shared by MiniCart (compact) and /cart (full)
 │   ├── PriceBreakdown.tsx    memoized per-line + total pricing
 │   └── CartAnnouncer.tsx     sr-only aria-live region
@@ -36,7 +37,9 @@ Building one (`buildRecipeSnapshot`) and restoring one (`customizer-store`'s `lo
 2. `CartIcon` (navbar, every route) shows a real item-count badge and registers its own DOM node with `cartIconAnchor` (a `createBridgeStore` instance, the same cross-component-tree-boundary pattern `useCupKeyboardControls`'s `keyboardRotationDelta` established) so `AddToCartButton` has a real target position to animate a "flying" ghost element toward.
 3. `MiniCart` (the icon's `Sheet`) and the full `/cart` page (`CartExperience`) both render the same `CartItemRow`/`PriceBreakdown` components — a compact, read-mostly mode for the mini-cart, full quantity/remove/favorite/edit controls on the full page.
 4. "Edit" calls `customizer-store`'s `loadRecipeSnapshot` (rehydrating `selection`/`baseDrinkId`/`baseDrinkCategory`/`appliedRecommendationId` all at once) and navigates to `/customize?drink=<id>` — the same real routing Sprint 3.3/3.5 already established.
-5. `/checkout` (`CheckoutExperience`) shows the order summary and a minimal name/email form; "Place Order" calls `cart-store`'s `placeOrder()` — since Sprint 5.3, a real `POST /api/v1/orders` call (`lib/order-client.ts`), not a locally-fabricated record — clears the cart, emits `checkout:completed`, and navigates to `/checkout/confirmation`, which reads `lastOrder` (the real `OrderDto` the backend returned) for its premium reveal.
+5. `/checkout` (`CheckoutExperience`) shows the order summary and a minimal name/email form; "Place Order" calls `cart-store`'s `placeOrder()` — since Sprint 5.3, a real `POST /api/v1/orders` call (`lib/order-client.ts`), not a locally-fabricated record — clears the cart, emits `checkout:completed`. Since Sprint 5.5, that's not the last step: it immediately starts a real payment session (`createCheckoutSession`, `lib/payment-client.ts`) against the new order and navigates to `/checkout/payment`, not straight to confirmation.
+6. `/checkout/payment` (`PaymentProcessing`) is where the actual charge happens — real `IPaymentGateway` call server-side (`FakePaymentGateway` in this environment; see [34_PAYMENTS_NOTIFICATIONS_SEARCH.md](../../../docs/34_PAYMENTS_NOTIFICATIONS_SEARCH.md)'s own Sprint 5.5 status note for the disclosed Stripe-unverified gap). Reads `lastOrder`/`lastPaymentId` from `cart-store` (not URL params), so a refresh, a back-button return, or a second tab all resolve against the same real `Payment` — every call here is genuinely idempotent server-side. On success it redirects to `/checkout/confirmation`; on decline/error it shows a real retry/cancel UI in place, no route change.
+7. `/checkout/confirmation` (`OrderConfirmation`) now only renders after the payment actually succeeded, reading both `lastOrder` and `lastPaymentId` (the real `OrderDto`/`Payment.Id` the backend returned) for its premium reveal, plus a link to the real receipt (`/payments/[id]`, `features/payments/`).
 
 ## Responsibilities
 
@@ -48,8 +51,9 @@ Building one (`buildRecipeSnapshot`) and restoring one (`customizer-store`'s `lo
 
 ## Known simplifications
 
-- Checkout collects name/email only — no payment fields. This project has no payment gateway (see `PayOrderCommand`'s own doc comment for what "pay" means instead — staff recording payment received outside this system); building fake card-number inputs would be actively misleading rather than a real "premium" flow, the same honesty this project's other simulated-but-transparent systems (the AI Concierge's rule engine, Sprint 3.4's "not a physics engine") already establish.
-- Favorites/`lastOrder` are `localStorage`-persisted alongside cart items for simplicity, not literally erased at tab-close — "session only" in the brief is read here as "no server account," matching `stores/cart-store.ts`'s own doc comment.
+- Checkout still collects name/email only — no card-number fields render anywhere in this feature. That's not a gap as of Sprint 5.5, it's the correct PCI-safe shape: a real card gateway's own client-side SDK (Stripe Elements, in a real deployment) would collect card details directly, never through this project's own form fields — see [36_SECURITY_MODEL.md](../../../docs/36_SECURITY_MODEL.md)'s own Payments security section. `FakePaymentGateway` (this environment's active gateway) needs no card input at all, resolving synchronously server-side from the charge amount alone.
+- Favorites/`lastOrder`/`lastPaymentId` are `localStorage`-persisted alongside cart items for simplicity, not literally erased at tab-close — "session only" in the brief is read here as "no server account," matching `stores/cart-store.ts`'s own doc comment.
+- `FakePaymentGateway`'s decline/provider-error simulation (magic amount cents `.13`/`.14`) is unreachable through any real checkout composed from this project's own catalog — every price/modifier is a multiple of $0.05. This feature's own declined/failed UI states (`PaymentProcessing.tsx`) are real and tested (`PaymentCommandHandlerTests.cs`, gateway mocked directly), just not exercisable end-to-end through a real browser session with real menu items.
 
 ## Update (Sprint 5.3, Ordering Platform)
 
@@ -64,8 +68,13 @@ A dedicated audit found and fixed three real motion-token violations: `OrderConf
 
 Found, not fixed this sprint: `reorderItem` (`cart-store.ts`) is a real, tested store action with zero UI callers — no up/down control exists anywhere in `CartItemRow`/`CartExperience`/`MiniCart`. Flagged in [RC1_RELEASE_CANDIDATE_REPORT.md](../../../docs/RC1_RELEASE_CANDIDATE_REPORT.md)'s Technical Debt section rather than either wired up under time pressure or removed without checking whether cart-line reordering is still a wanted feature.
 
-## Future extension
+## Update (Sprint 5.5, Payments Platform)
 
-- **A real payment gateway**: `CheckoutExperience`'s form is the one place a real payment step would slot in, without touching the cart model itself — `PayOrderCommand` already exists on the backend for staff to record a payment through some other means; a real `Payment` aggregate/`IPaymentProvider` would extend that, not replace it.
+The "real payment gateway" item this section used to name under Future Extension is done. `CheckoutExperience` no longer navigates straight from "Place Order" to confirmation — it starts a real payment session and hands off to a new step, `PaymentProcessing.tsx` (`/checkout/payment`), before confirmation is ever reached. See `features/payments/README.md` for the full Payment History/Receipt feature this unlocked, and this README's own Flow section above for the updated 7-step sequence.
 
-(The "future backend/account system" item this section once named is done — see the Sprint 5.3 update above and `features/orders/README.md`.)
+Two real, additive changes this required here, matching `lastOrder`'s own established pattern:
+
+- **`cart-store.ts` gained `lastPaymentId`/`setLastPaymentId`**, persisted the same way `lastOrder` is — what makes "refresh during checkout," "back button to `/checkout/payment`," and "second tab" all real, working scenarios instead of dead ends: the page re-derives its state by re-fetching the same real `Payment` (`getPayment`/`confirmPayment`, both idempotent server-side), never from a URL param or component state a reload would lose.
+- **`OrderConfirmation`'s copy changed from "Order confirmed" to "Payment confirmed"** — a deliberate, meaningful distinction now that this page is only reachable after a real charge succeeded, not merely after the order was submitted. Existing e2e assertions (`cart.spec.ts`/`orders.spec.ts`) were updated to match, not left pointing at stale copy.
+
+A real bug found via this feature's own live/Playwright verification, fixed in the backend, not here: awaiting the order-confirmation email's full SMTP round trip inline blocked the `/checkout/payment` → confirmation redirect long enough that a real browser aborted the request under load — the payment itself had already succeeded, but the customer never saw it. See `ConfirmPaymentCommand`'s own doc comment and [docs/reviews/sprint-5.5-review.md](../../../docs/reviews/sprint-5.5-review.md).

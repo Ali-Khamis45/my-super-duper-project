@@ -1,4 +1,4 @@
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type APIRequestContext, type Page, test } from "@playwright/test";
 
 import { verifyAndPromoteToStaff, verifyEmailOnly } from "./helpers/admin";
 import { skipOnboardingTour } from "./helpers/onboarding";
@@ -33,22 +33,41 @@ async function registerAndLogin(page: Page, email: string, promoteToStaff: boole
   await page.waitForURL("**/");
 }
 
-async function placeGuestOrder(page: Page, guestName: string, guestEmail: string): Promise<string> {
-  await page.goto("/customize?drink=cappuccino");
-  await page.waitForSelector('[role="application"] canvas');
-  await page.getByRole("button", { name: "Add to Cart" }).click();
-  await expect(page.getByRole("button", { name: /Cart, \d+ item/ })).toBeVisible();
+/**
+ * Sprint 5.5 — a direct `POST /api/v1/orders` call, not `placeGuestOrder`'s own `/checkout` UI
+ * flow. As of this sprint, `/checkout` real-pays through the Payments Platform before reaching
+ * confirmation (`FakePaymentGateway` succeeds by default), so an order placed through the UI now
+ * arrives at `/admin/orders` already `Paid`, not `Submitted` — the "Mark paid"/"Mark failed" tests
+ * below specifically need a genuinely `Submitted`, *unpaid* order to exercise `PayOrderCommand`/
+ * `FailOrderCommand` (the real "staff records payment/failure through some means outside the
+ * gateway" flow — see `PayOrderCommand`'s own doc comment), so they create one directly instead,
+ * the same pattern `admin-inventory.spec.ts`'s own end-to-end reservation test already established
+ * (real HTTP, real Postgres — only the unrelated `/customize` 3D interaction is skipped).
+ */
+async function placeGuestOrderViaApi(request: APIRequestContext, guestName: string, guestEmail: string): Promise<string> {
+  const menuResponse = await request.get("http://localhost:5000/api/v1/menu");
+  const menu = (await menuResponse.json()) as Array<{ id: string }>;
+  const productId = menu[0]!.id;
 
-  await page.goto("/checkout");
-  await page.getByLabel("Name").fill(guestName);
-  await page.getByLabel("Email").fill(guestEmail);
-  await page.getByRole("button", { name: /Place Order/ }).click();
-  await page.waitForURL("**/checkout/confirmation", { timeout: 20_000 });
-
-  const orderNumberText = await page.getByText(/order #/).textContent();
-  const orderNumber = orderNumberText?.match(/#(\S+)/)?.[1];
-  if (!orderNumber) throw new Error("Order confirmation page didn't render a real order number.");
-  return orderNumber;
+  const createResponse = await request.post("http://localhost:5000/api/v1/orders", {
+    data: {
+      lines: [
+        {
+          productId,
+          selection: { color: "cream", size: "medium", sleeve: "kraft", lid: "classic", logo: "classic", material: "glossy", ingredients: [] },
+          quantity: 1,
+          recommendationId: null,
+        },
+      ],
+      guestName,
+      guestEmail,
+      fulfillmentMethod: "Pickup",
+      idempotencyKey: `e2e-admin-orders-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
+    },
+  });
+  expect(createResponse.ok()).toBeTruthy();
+  const order = (await createResponse.json()) as { orderNumber: string };
+  return order.orderNumber;
 }
 
 test("anonymous visitors to /admin/orders are redirected to /login", async ({ page }) => {
@@ -66,12 +85,12 @@ test("a plain customer (no orders permission) sees Access Denied, not the orders
   await expect(page.getByRole("heading", { name: "Orders", exact: true })).toHaveCount(0);
 });
 
-test("staff (not admin): can search for a real guest order by order number and mark it paid then completed", async ({ page }) => {
+test("staff (not admin): can search for a real guest order by order number and mark it paid then completed", async ({ page, request }) => {
   test.setTimeout(120_000);
   await skipOnboardingTour(page);
 
   const guestName = `E2E Guest ${Date.now()}`;
-  const orderNumber = await placeGuestOrder(page, guestName, "e2e-guest@example.com");
+  const orderNumber = await placeGuestOrderViaApi(request, guestName, "e2e-guest@example.com");
 
   await registerAndLogin(page, uniqueEmail("staff"), true);
 
@@ -95,12 +114,12 @@ test("staff (not admin): can search for a real guest order by order number and m
   await expect(page.getByRole("button", { name: "Mark paid" })).toHaveCount(0);
 });
 
-test("staff: can fail a submitted order with a real reason", async ({ page }) => {
+test("staff: can fail a submitted order with a real reason", async ({ page, request }) => {
   test.setTimeout(120_000);
   await skipOnboardingTour(page);
 
   const guestName = `E2E Fail Guest ${Date.now()}`;
-  const orderNumber = await placeGuestOrder(page, guestName, "e2e-guest-fail@example.com");
+  const orderNumber = await placeGuestOrderViaApi(request, guestName, "e2e-guest-fail@example.com");
 
   await registerAndLogin(page, uniqueEmail("staff-fail"), true);
 

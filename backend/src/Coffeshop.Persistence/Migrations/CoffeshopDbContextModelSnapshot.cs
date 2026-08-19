@@ -730,6 +730,77 @@ namespace Coffeshop.Persistence.Migrations
                     b.ToTable("orders", (string)null);
                 });
 
+            modelBuilder.Entity("Coffeshop.Domain.Payments.Payment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at_utc");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at_utc");
+
+                    b.Property<string>("IdempotencyKey")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("idempotency_key");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_deleted");
+
+                    b.Property<DateTimeOffset?>("ModifiedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("modified_at_utc");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("modified_by");
+
+                    b.Property<Guid>("OrderId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("order_id");
+
+                    b.Property<string>("Provider")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("provider");
+
+                    b.Property<uint>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("status");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IdempotencyKey")
+                        .IsUnique();
+
+                    b.HasIndex("OrderId")
+                        .IsUnique();
+
+                    b.HasIndex("Status");
+
+                    b.ToTable("payments", (string)null);
+                });
+
             modelBuilder.Entity("Coffeshop.Persistence.Outbox.OutboxMessage", b =>
                 {
                     b.Property<Guid>("Id")
@@ -760,6 +831,22 @@ namespace Coffeshop.Persistence.Migrations
                     b.HasIndex("ProcessedAtUtc");
 
                     b.ToTable("outbox_messages", (string)null);
+                });
+
+            modelBuilder.Entity("Coffeshop.Persistence.Payments.ProcessedWebhookEvent", b =>
+                {
+                    b.Property<string>("EventId")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("event_id");
+
+                    b.Property<DateTimeOffset>("ProcessedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("processed_at_utc");
+
+                    b.HasKey("EventId");
+
+                    b.ToTable("processed_webhook_events", (string)null);
                 });
 
             modelBuilder.Entity("Coffeshop.Domain.Catalog.Ingredient", b =>
@@ -1367,6 +1454,163 @@ namespace Coffeshop.Persistence.Migrations
                     b.Navigation("Timeline");
 
                     b.Navigation("Totals")
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Coffeshop.Domain.Payments.Payment", b =>
+                {
+                    b.OwnsOne("Coffeshop.Domain.Catalog.ValueObjects.Money", "Amount", b1 =>
+                        {
+                            b1.Property<Guid>("PaymentId")
+                                .HasColumnType("uuid");
+
+                            b1.Property<decimal>("Amount")
+                                .HasColumnType("numeric(10,2)")
+                                .HasColumnName("amount");
+
+                            b1.Property<string>("Currency")
+                                .IsRequired()
+                                .HasMaxLength(3)
+                                .HasColumnType("character varying(3)")
+                                .HasColumnName("currency");
+
+                            b1.HasKey("PaymentId");
+
+                            b1.ToTable("payments");
+
+                            b1.WithOwner()
+                                .HasForeignKey("PaymentId");
+                        });
+
+                    b.OwnsOne("Coffeshop.Domain.Catalog.ValueObjects.Money", "RefundedAmount", b1 =>
+                        {
+                            b1.Property<Guid>("PaymentId")
+                                .HasColumnType("uuid");
+
+                            b1.Property<decimal>("Amount")
+                                .HasColumnType("numeric(10,2)")
+                                .HasColumnName("refunded_amount");
+
+                            b1.Property<string>("Currency")
+                                .IsRequired()
+                                .HasMaxLength(3)
+                                .HasColumnType("character varying(3)")
+                                .HasColumnName("refunded_currency");
+
+                            b1.HasKey("PaymentId");
+
+                            b1.ToTable("payments");
+
+                            b1.WithOwner()
+                                .HasForeignKey("PaymentId");
+                        });
+
+                    b.OwnsMany("Coffeshop.Domain.Payments.PaymentAttempt", "Attempts", b1 =>
+                        {
+                            b1.Property<Guid>("Id")
+                                .HasColumnType("uuid");
+
+                            b1.Property<Guid>("PaymentId")
+                                .HasColumnType("uuid");
+
+                            b1.Property<string>("ProviderReference")
+                                .HasMaxLength(255)
+                                .HasColumnType("character varying(255)")
+                                .HasColumnName("provider_reference");
+
+                            b1.Property<DateTimeOffset?>("ResolvedAtUtc")
+                                .HasColumnType("timestamp with time zone")
+                                .HasColumnName("resolved_at_utc");
+
+                            b1.Property<DateTimeOffset>("StartedAtUtc")
+                                .HasColumnType("timestamp with time zone")
+                                .HasColumnName("started_at_utc");
+
+                            b1.Property<string>("Status")
+                                .IsRequired()
+                                .HasMaxLength(20)
+                                .HasColumnType("character varying(20)")
+                                .HasColumnName("status");
+
+                            b1.HasKey("Id");
+
+                            b1.HasIndex("PaymentId");
+
+                            b1.ToTable("payment_attempts", (string)null);
+
+                            b1.WithOwner()
+                                .HasForeignKey("PaymentId");
+
+                            b1.OwnsOne("Coffeshop.Domain.Payments.ValueObjects.PaymentFailure", "Failure", b2 =>
+                                {
+                                    b2.Property<Guid>("PaymentAttemptId")
+                                        .HasColumnType("uuid");
+
+                                    b2.Property<string>("Code")
+                                        .IsRequired()
+                                        .HasMaxLength(100)
+                                        .HasColumnType("character varying(100)")
+                                        .HasColumnName("failure_code");
+
+                                    b2.Property<string>("DeclineCode")
+                                        .HasMaxLength(100)
+                                        .HasColumnType("character varying(100)")
+                                        .HasColumnName("failure_decline_code");
+
+                                    b2.Property<string>("Message")
+                                        .IsRequired()
+                                        .HasMaxLength(500)
+                                        .HasColumnType("character varying(500)")
+                                        .HasColumnName("failure_message");
+
+                                    b2.HasKey("PaymentAttemptId");
+
+                                    b2.ToTable("payment_attempts");
+
+                                    b2.WithOwner()
+                                        .HasForeignKey("PaymentAttemptId");
+                                });
+
+                            b1.OwnsOne("Coffeshop.Domain.Payments.ValueObjects.PaymentMethod", "Method", b2 =>
+                                {
+                                    b2.Property<Guid>("PaymentAttemptId")
+                                        .HasColumnType("uuid");
+
+                                    b2.Property<string>("Brand")
+                                        .HasMaxLength(20)
+                                        .HasColumnType("character varying(20)")
+                                        .HasColumnName("method_brand");
+
+                                    b2.Property<string>("Last4")
+                                        .HasMaxLength(4)
+                                        .HasColumnType("character varying(4)")
+                                        .HasColumnName("method_last4");
+
+                                    b2.Property<string>("Type")
+                                        .IsRequired()
+                                        .HasMaxLength(20)
+                                        .HasColumnType("character varying(20)")
+                                        .HasColumnName("method_type");
+
+                                    b2.HasKey("PaymentAttemptId");
+
+                                    b2.ToTable("payment_attempts");
+
+                                    b2.WithOwner()
+                                        .HasForeignKey("PaymentAttemptId");
+                                });
+
+                            b1.Navigation("Failure");
+
+                            b1.Navigation("Method");
+                        });
+
+                    b.Navigation("Amount")
+                        .IsRequired();
+
+                    b.Navigation("Attempts");
+
+                    b.Navigation("RefundedAmount")
                         .IsRequired();
                 });
 #pragma warning restore 612, 618

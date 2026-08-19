@@ -39,6 +39,13 @@ public sealed class SmtpEmailSender(IOptions<SmtpOptions> options, ILogger<SmtpE
             "<p>Your password was just changed. If this wasn't you, contact support immediately — every other session for your account has been signed out.</p>",
             ct);
 
+    public Task SendOrderConfirmationAsync(string toEmail, string orderNumber, decimal total, CancellationToken ct) =>
+        SendAsync(
+            toEmail,
+            $"Your Coffeshop order {orderNumber} is confirmed",
+            $"""<p>Thanks for your order! We've received your payment for order <strong>{orderNumber}</strong>.</p><p>Total: ${total:0.00}</p><p>We'll have it ready for pickup soon.</p>""",
+            ct);
+
     private async Task SendAsync(string toEmail, string subject, string htmlBody, CancellationToken ct)
     {
         var message = new MimeMessage();

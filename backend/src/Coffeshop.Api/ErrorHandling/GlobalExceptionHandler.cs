@@ -2,6 +2,7 @@ using Coffeshop.Domain.Catalog.Exceptions;
 using Coffeshop.Domain.Identity.Exceptions;
 using Coffeshop.Domain.Inventory.Exceptions;
 using Coffeshop.Domain.Ordering.Exceptions;
+using Coffeshop.Domain.Payments.Exceptions;
 using FluentValidation;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
@@ -87,6 +88,19 @@ public sealed class GlobalExceptionHandler(ILogger<GlobalExceptionHandler> logge
         InvalidReservationStatusException => (StatusCodes.Status409Conflict, exception.Message, "invalid-status-transition"),
         InvalidQuantityException or NegativeStockException or InvalidLowStockPolicyException
             => (StatusCodes.Status400BadRequest, exception.Message, "invalid-input"),
+
+        // Payments (Sprint 5.5) — same discipline as Catalog/Ordering/Inventory above.
+        PaymentNotFoundException or PaymentAttemptNotFoundException => (StatusCodes.Status404NotFound, exception.Message, "not-found"),
+        PaymentAlreadyExistsException => (StatusCodes.Status409Conflict, exception.Message, "already-exists"),
+        InvalidPaymentStatusException => (StatusCodes.Status409Conflict, exception.Message, "invalid-status-transition"),
+        InvalidRefundAmountException => (StatusCodes.Status409Conflict, exception.Message, "invalid-refund-amount"),
+        InvalidIdempotencyKeyException or InvalidPaymentProviderReferenceException
+            => (StatusCodes.Status400BadRequest, exception.Message, "invalid-input"),
+        // Deliberately 400, not 401/403 — a webhook's own signature IS its authentication, and
+        // there is no real caller identity to distinguish "who are you" from "is this genuine."
+        // See docs/36_SECURITY_MODEL.md's own Sprint 5.5 note.
+        InvalidWebhookSignatureException => (StatusCodes.Status400BadRequest, exception.Message, "invalid-webhook-signature"),
+        PaymentInProgressException => (StatusCodes.Status409Conflict, exception.Message, "payment-in-progress"),
 
         // A genuine concurrent-write conflict (two admins editing the same product at once) —
         // EF Core's own xmin-backed optimistic concurrency check throwing this is the real

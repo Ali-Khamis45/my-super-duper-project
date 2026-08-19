@@ -3,7 +3,9 @@ using Coffeshop.Domain.Catalog;
 using Coffeshop.Domain.Identity;
 using Coffeshop.Domain.Inventory;
 using Coffeshop.Domain.Ordering;
+using Coffeshop.Domain.Payments;
 using Coffeshop.Persistence.Outbox;
+using Coffeshop.Persistence.Payments;
 using Microsoft.EntityFrameworkCore;
 
 namespace Coffeshop.Persistence;
@@ -33,6 +35,10 @@ public sealed class CoffeshopDbContext(DbContextOptions<CoffeshopDbContext> opti
     public DbSet<InventoryReservation> InventoryReservations => Set<InventoryReservation>();
 
     public DbSet<InventoryTransaction> InventoryTransactions => Set<InventoryTransaction>();
+
+    public DbSet<Payment> Payments => Set<Payment>();
+
+    public DbSet<ProcessedWebhookEvent> ProcessedWebhookEvents => Set<ProcessedWebhookEvent>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

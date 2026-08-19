@@ -33,6 +33,7 @@ public static class IdentitySeeder
                 PermissionCodes.UpdateOrderStatus,
                 PermissionCodes.ViewInventory,
                 PermissionCodes.AdjustInventory,
+                PermissionCodes.ViewPayments,
             ]));
 
             context.Roles.Add(RoleDefinition.Create(RoleNames.Admin, [.. PermissionCodes.AllWithDescriptions.Keys]));

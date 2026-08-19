@@ -39,7 +39,7 @@ public sealed class InventoryReservationCoordinatorTests
 
         milkItem.ReservedQuantity.Value.Should().Be(5);
         milkItem.AvailableQuantity.Should().Be(15);
-        _inventoryReservationRepository.Received(1).Add(Arg.Is<InventoryReservation>(r => r.OrderId == orderId && r.Quantity == 5 && r.IngredientId == milkIngredientId));
+        _inventoryReservationRepository.Received(1).Add(Arg.Is<InventoryReservation>(r => r != null && r.OrderId == orderId && r.Quantity == 5 && r.IngredientId == milkIngredientId));
     }
 
     [Fact]
@@ -122,7 +122,7 @@ public sealed class InventoryReservationCoordinatorTests
         var act = () => _sut.ReleaseForOrderAsync(Guid.NewGuid(), Now, CancellationToken.None);
 
         await act.Should().NotThrowAsync();
-        _inventoryItemRepository.DidNotReceive().GetByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>());
+        _ = _inventoryItemRepository.DidNotReceive().GetByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -142,6 +142,6 @@ public sealed class InventoryReservationCoordinatorTests
         reservation.Status.Should().Be(InventoryReservationStatus.Consumed);
         item.StockLevel.Value.Should().Be(6);
         item.ReservedQuantity.Value.Should().Be(0);
-        _inventoryTransactionRepository.Received(1).Add(Arg.Is<InventoryTransaction>(t => t.QuantityDelta == -4 && t.Reason == InventoryReason.OrderConsumption && t.OrderId == orderId));
+        _inventoryTransactionRepository.Received(1).Add(Arg.Is<InventoryTransaction>(t => t != null && t.QuantityDelta == -4 && t.Reason == InventoryReason.OrderConsumption && t.OrderId == orderId));
     }
 }

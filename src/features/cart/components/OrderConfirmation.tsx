@@ -19,9 +19,16 @@ import { useCartStore } from "@/stores/cart-store";
  * not a locally-fabricated record — rather than anything route/query-string-
  * carried, so a reload still shows the same real order (as long as the
  * session hasn't cleared it) instead of needing to re-parse URL params.
+ *
+ * Sprint 5.5 — this page is now only reachable *after* `PaymentProcessing`
+ * (`/checkout/payment`) sees a real `succeeded` `Payment`, not merely after
+ * the order was submitted; the copy below reflects "paid," not just "placed."
+ * `lastPaymentId` (also from `cart-store`, same persistence pattern as
+ * `lastOrder`) links to the real receipt page when present.
  */
 export function OrderConfirmation() {
   const lastOrder = useCartStore((state) => state.lastOrder);
+  const lastPaymentId = useCartStore((state) => state.lastPaymentId);
   const reducedMotion = usePrefersReducedMotion();
   const headingRef = useRef<HTMLHeadingElement>(null);
 
@@ -63,10 +70,10 @@ export function OrderConfirmation() {
       </motion.div>
 
       <h1 ref={headingRef} tabIndex={-1} className="font-display mb-1 text-2xl outline-none">
-        Order confirmed
+        Payment confirmed
       </h1>
       <p className="text-muted-foreground mb-6 text-sm">
-        Thank you — order <span className="text-foreground font-medium">#{lastOrder.orderNumber}</span> is on its way.
+        Thank you — order <span className="text-foreground font-medium">#{lastOrder.orderNumber}</span> is paid and on its way.
       </p>
 
       <Card className="mb-6 text-left">
@@ -88,6 +95,11 @@ export function OrderConfirmation() {
       </Card>
 
       <div className="flex flex-col items-center gap-2 sm:flex-row sm:justify-center sm:gap-3">
+        {lastPaymentId && (
+          <Button variant="outline" nativeButton={false} render={<Link href={`/payments/${lastPaymentId}`} />}>
+            View receipt
+          </Button>
+        )}
         <Button nativeButton={false} render={<Link href="/orders" />}>View my orders</Button>
         <Button variant="outline" nativeButton={false} render={<Link href="/menu" />}>Back to the menu</Button>
       </div>

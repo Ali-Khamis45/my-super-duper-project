@@ -335,14 +335,16 @@ public sealed class GetOrderQueryHandlerTests
 public sealed class PayOrderCommandHandlerTests
 {
     private readonly IOrderRepository _orderRepository = Substitute.For<IOrderRepository>();
+    private readonly Coffeshop.Application.Payments.Interfaces.IPaymentRepository _paymentRepository = Substitute.For<Coffeshop.Application.Payments.Interfaces.IPaymentRepository>();
     private readonly IInventoryReservationCoordinator _inventoryReservationCoordinator = Substitute.For<IInventoryReservationCoordinator>();
     private readonly IClock _clock = Substitute.For<IClock>();
     private readonly PayOrderCommandHandler _sut;
 
     public PayOrderCommandHandlerTests()
     {
-        _sut = new PayOrderCommandHandler(_orderRepository, _inventoryReservationCoordinator, _clock);
+        _sut = new PayOrderCommandHandler(_orderRepository, _paymentRepository, _inventoryReservationCoordinator, _clock);
         _clock.UtcNow.Returns(DateTimeOffset.UtcNow);
+        _paymentRepository.GetByOrderIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns((Coffeshop.Domain.Payments.Payment?)null);
     }
 
     [Fact]
@@ -367,6 +369,27 @@ public sealed class PayOrderCommandHandlerTests
         var dto = await _sut.Handle(new PayOrderCommand(order.Id), CancellationToken.None);
 
         dto.Status.Should().Be("paid");
+    }
+
+    /// <summary>Regression test for the real Sprint 5.5 finding: recording a manual (cash) payment while a real gateway Payment is still in flight risked a genuine double-charge. See PayOrderCommand's own doc comment.</summary>
+    [Fact]
+    public async Task Handle_OrderHasAPaymentInProgress_ThrowsPaymentInProgressExceptionRatherThanRiskingADoubleCharge()
+    {
+        var order = Order.Create(OrderNumber.FromSequenceValue(1), Guid.NewGuid(), null, FulfillmentMethod.Pickup, DateTimeOffset.UtcNow);
+        order.AddItem(Guid.NewGuid(), "Cappuccino", "ESP-001", RecipeSelection.Create("cream", "medium", "kraft", "classic", "classic", "glossy", []), Money.Create(4.50m), 1, null);
+        order.Submit(DateTimeOffset.UtcNow);
+        _orderRepository.GetByIdAsync(order.Id, Arg.Any<CancellationToken>()).Returns(order);
+
+        var payment = Coffeshop.Domain.Payments.Payment.Create(
+            order.Id, Money.Create(4.50m), Coffeshop.Domain.Payments.PaymentProviderName.Fake,
+            Coffeshop.Domain.Payments.ValueObjects.IdempotencyKey.Create($"order-{order.Id}"), DateTimeOffset.UtcNow);
+        payment.StartAttempt(Coffeshop.Domain.Payments.ValueObjects.PaymentProviderReference.Create("fake_pi_1"), DateTimeOffset.UtcNow);
+        _paymentRepository.GetByOrderIdAsync(order.Id, Arg.Any<CancellationToken>()).Returns(payment);
+
+        var act = () => _sut.Handle(new PayOrderCommand(order.Id), CancellationToken.None);
+
+        await act.Should().ThrowAsync<Coffeshop.Domain.Payments.Exceptions.PaymentInProgressException>();
+        order.Status.Should().Be(OrderStatus.Submitted);
     }
 }
 

@@ -7,7 +7,7 @@ Protected internal tooling for managing the Catalog: products (full CRUD, Draft�
 ```
 admin/
 ├── components/{AdminNav,AccessDenied}.tsx
-├── hooks/{useRequireAdminAccess,useRequireManageProducts,useRequireViewOrders,useRequireViewInventory}.ts
+├── hooks/{useRequireAdminAccess,useRequireManageProducts,useRequireViewOrders,useRequireViewInventory,useRequireViewPayments}.ts
 ├── products/
 │   ├── components/{ProductTable,ProductFilters,ProductEditor,CreateProductForm}.tsx
 │   ├── hooks/{useAdminProductsQuery,useAdminProductQuery,useProductMutations}.ts
@@ -21,12 +21,15 @@ admin/
 ├── orders/
 │   ├── components/{AdminOrderTable,AdminOrderFilters,AdminOrderDetail}.tsx
 │   └── hooks/{useAdminOrdersQuery,useAdminOrderQuery,useOrderStatusMutations}.ts
-└── inventory/                                additive, Sprint 5.4
-    ├── components/{InventoryTable,InventoryFilters,InventoryDashboardSummary,InventoryStatusBadge,InventoryItemDetail,InventoryReservationsTable,InventoryReservationsFilters,ReservationStatusBadge}.tsx
-    └── hooks/{useAdminInventoryQuery,useAdminInventoryItemQuery,useInventoryDashboardQuery,useInventoryHistoryQuery,useInventoryReservationsQuery,useInventoryMutations}.ts
+├── inventory/                                additive, Sprint 5.4
+│   ├── components/{InventoryTable,InventoryFilters,InventoryDashboardSummary,InventoryStatusBadge,InventoryItemDetail,InventoryReservationsTable,InventoryReservationsFilters,ReservationStatusBadge}.tsx
+│   └── hooks/{useAdminInventoryQuery,useAdminInventoryItemQuery,useInventoryDashboardQuery,useInventoryHistoryQuery,useInventoryReservationsQuery,useInventoryMutations}.ts
+└── payments/                                 additive, Sprint 5.5
+    ├── components/{AdminPaymentTable,AdminPaymentFilters,AdminPaymentDetail}.tsx
+    └── hooks/{useAdminPaymentsQuery,useAdminPaymentQuery,usePaymentActionMutations}.ts
 ```
 
-Routes live at `app/admin/{layout,products/page,products/new/page,products/[id]/page,categories/page,ingredients/page,orders/page,orders/[id]/page,inventory/page,inventory/[id]/page,inventory/reservations/page}.tsx` — `app/admin/layout.tsx` is the one place the guard is applied; every page underneath it is automatically protected, not individually gated.
+Routes live at `app/admin/{layout,products/page,products/new/page,products/[id]/page,categories/page,ingredients/page,orders/page,orders/[id]/page,inventory/page,inventory/[id]/page,inventory/reservations/page,payments/page,payments/[id]/page}.tsx` — `app/admin/layout.tsx` is the one place the guard is applied; every page underneath it is automatically protected, not individually gated.
 
 ## Why the admin-facing hooks don't reuse the customer-facing ones
 
@@ -55,6 +58,7 @@ Routes live at `app/admin/{layout,products/page,products/new/page,products/[id]/
 
 ## Future extension
 
+- **Sprint 5.5 (Payments Platform, shipped)**: added `payments/` — real capture (two-phase/`CaptureMode: "Manual"` attempts only) and refund actions, gated on `payments:view`/`refunds:process` respectively (`refunds:process` seeded Admin-only, never Staff — refunds are a meaningfully more sensitive action than viewing). `AdminNav`/the guard shell pattern were extended, not rebuilt, same established convention. `AdminPaymentDetail`'s "Capture payment" button only ever appears for a payment whose current attempt is genuinely `Authorized` — real, live-verified reachability, not a button sitting in front of dead backend capability (see `CapturePaymentCommand`'s own doc comment for the real Sprint 5.5 finding this closes).
 - **Sprint 5.4 (Inventory Platform, shipped)**: added `orders/` (Sprint 5.3, previously undocumented here) and `inventory/` — real stock tracking, reservations tied to the Order lifecycle, restock/adjust/mark-availability actions, a reservation viewer, and a dashboard summary. `AdminNav`/the guard shell pattern were extended, not rebuilt, per this feature's own established convention.
 - **A real featured-drinks toggle in the UI**: `SetFeaturedCommand`/`PUT /api/v1/products/{id}/featured` exist backend-side (real, tested), but no frontend client function calls it yet — same "no zero-consumer scaffolding" reasoning `menu-client.ts`'s own note on `getFeatured` explains: no featured section exists on the customer-facing home page to make a featured toggle meaningful yet, so the client-side write path was left unbuilt rather than added speculatively. Add both together the same milestone a real featured section gets built.
 - **Inventory bulk adjustments**: see "Known simplifications" above — needs a real backend batch command before a UI for it is honest to build.

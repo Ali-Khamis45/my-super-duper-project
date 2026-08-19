@@ -14,24 +14,29 @@ import { appEvents } from "@/engine/events";
 import { fadeUp } from "@/engine/motion/presets";
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 import { ApiError } from "@/lib/api-errors";
+import { createCheckoutSession } from "@/lib/payment-client";
 import { selectCartTotal, useCartStore } from "@/stores/cart-store";
 
 import { PriceBreakdown } from "./PriceBreakdown";
 
 /**
- * `/checkout` — an order summary plus a minimal, honestly-scoped form
- * (name/email for a receipt, no real payment fields; this project has no
- * payment gateway, and building fake card-number inputs would be actively
- * misleading rather than a real "premium" flow — see `PayOrderCommand`'s own
- * doc comment on what "pay" means here). "Place Order" is the checkout's
- * one real commit point: `cart-store`'s `placeOrder()` submits the cart to
- * the real `POST /api/v1/orders`, clears it, and this component navigates
- * to the confirmation route once the backend has actually accepted it.
+ * `/checkout` — an order summary plus a minimal name/email form (still no card-number fields
+ * here; see `features/checkout/README.md`'s own note on why the actual charge step lives on the
+ * next screen, `/checkout/payment`, not inline in this form). "Place Order" now does two real,
+ * sequential things instead of one: `cart-store`'s `placeOrder()` submits the cart to
+ * `POST /api/v1/orders` (unchanged since Sprint 5.3), then this component immediately starts a
+ * real payment session (`createCheckoutSession`) against that order and hands off to
+ * `/checkout/payment`, which is where the actual charge — real gateway call, `FakePaymentGateway`
+ * in this environment — happens. If the order was created but starting the session fails (a real
+ * network blip), the order still exists and isn't lost: `/checkout/payment` itself can retry
+ * starting a session for `lastOrder`, so this component doesn't need its own separate recovery
+ * path for that narrow gap.
  */
 export function CheckoutExperience() {
   const router = useRouter();
   const items = useCartStore((state) => state.items);
   const placeOrder = useCartStore((state) => state.placeOrder);
+  const setLastPaymentId = useCartStore((state) => state.setLastPaymentId);
   const reducedMotion = usePrefersReducedMotion();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -66,7 +71,9 @@ export function CheckoutExperience() {
         setIsPlacing(false);
         return;
       }
-      router.push("/checkout/confirmation");
+      const session = await createCheckoutSession(order.id);
+      setLastPaymentId(session.paymentId);
+      router.push("/checkout/payment");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Something went wrong placing your order. Please try again.");
       setIsPlacing(false);

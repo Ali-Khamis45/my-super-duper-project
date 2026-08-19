@@ -9,4 +9,8 @@ export const PermissionCodes = {
   ViewInventory: "inventory:view",
   /** Sprint 5.4 */
   AdjustInventory: "inventory:adjust",
+  /** Sprint 5.5 */
+  ViewPayments: "payments:view",
+  /** Sprint 5.5 — already frozen in Phase 0, seeded Admin-only (never Staff); reused as-is. */
+  ProcessRefunds: "refunds:process",
 } as const;

@@ -10,4 +10,7 @@ obj/
 # Test results
 TestResults/
 
+# Local dev server runtime logs (e.g. `dotnet run > api.log`) — never committed
+*.log
+
 # User secrets are stored outside the repo (%APPDATA%\Microsoft\UserSecrets) — never here.

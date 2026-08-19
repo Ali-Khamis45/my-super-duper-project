@@ -16,6 +16,8 @@ public static class RateLimitingExtensions
     public const string GlobalPolicy = "global";
     public const string AuthPolicy = "auth";
     public const string PerUserPolicy = "per-user";
+    /// <summary>Additive (Sprint 5.5) — tighter than <see cref="PerUserPolicy"/>'s general 60/min: a checkout/retry attempt is financially meaningful in a way an ordinary read isn't, so it gets its own, stricter budget. Deliberately applied only to <c>/payments/create-session</c>/<c>/confirm</c>/<c>/{id}/cancel</c> — never the webhook endpoint, which has no real per-user identity to key on and must accept a gateway's own retry cadence; signature verification is that endpoint's real gate, not a request-volume ceiling (see docs/36_SECURITY_MODEL.md's own Sprint 5.5 note).</summary>
+    public const string PaymentPolicy = "payment";
 
     public static IServiceCollection AddCoffeshopRateLimiting(this IServiceCollection services)
     {
@@ -54,6 +56,18 @@ public static class RateLimitingExtensions
                     factory: _ => new FixedWindowRateLimiterOptions
                     {
                         PermitLimit = 60,
+                        Window = TimeSpan.FromMinutes(1),
+                    }));
+
+            // Layer 4 — a real, financially-meaningful action, keyed by IP (like AuthPolicy, not
+            // PerUserPolicy) since checkout/payment endpoints are reachable anonymously for
+            // guest orders, same as order creation itself.
+            options.AddPolicy(PaymentPolicy, httpContext =>
+                RateLimitPartition.GetFixedWindowLimiter(
+                    partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                    factory: _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = 20,
                         Window = TimeSpan.FromMinutes(1),
                     }));
         });

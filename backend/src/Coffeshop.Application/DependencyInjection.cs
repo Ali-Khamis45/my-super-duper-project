@@ -1,6 +1,7 @@
 using System.Reflection;
 using Coffeshop.Application.Common.Behaviors;
 using Coffeshop.Application.Inventory.Coordination;
+using Coffeshop.Application.Payments.Coordination;
 using FluentValidation;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
@@ -40,6 +41,11 @@ public static class DependencyInjection
         // Application-layer repository interfaces, never called from outside this assembly. See
         // IInventoryReservationCoordinator's own doc comment for why it isn't a MediatR command.
         services.AddScoped<IInventoryReservationCoordinator, InventoryReservationCoordinator>();
+
+        // internal, not public — same reasoning as IInventoryReservationCoordinator above, one
+        // bounded-context layer further out (Payments -> Ordering -> Inventory). See
+        // IOrderPaymentCoordinator's own doc comment.
+        services.AddScoped<IOrderPaymentCoordinator, OrderPaymentCoordinator>();
 
         return services;
     }

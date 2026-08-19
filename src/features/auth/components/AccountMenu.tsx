@@ -1,6 +1,6 @@
 "use client";
 
-import { LogOut, Package, User } from "lucide-react";
+import { LogOut, Package, Receipt, User } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -64,6 +64,10 @@ export function AccountMenu() {
         <DropdownMenuItem render={<Link href="/orders" />}>
           <Package />
           My Orders
+        </DropdownMenuItem>
+        <DropdownMenuItem render={<Link href="/payments" />}>
+          <Receipt />
+          My Payments
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={handleLogout}>

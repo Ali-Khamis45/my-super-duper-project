@@ -48,7 +48,7 @@ test("an authenticated customer places a real order and sees it in My Orders and
   await page.getByLabel("Email").fill("ada@example.com");
   await page.getByRole("button", { name: /Place Order/ }).click();
   await page.waitForURL("**/checkout/confirmation", { timeout: 20_000 });
-  await expect(page.getByRole("heading", { name: "Order confirmed" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Payment confirmed" })).toBeVisible();
   const orderNumberText = await page.getByText(/order #/).textContent();
   const orderNumber = orderNumberText?.match(/#(\S+)/)?.[1];
   expect(orderNumber).toBeTruthy();
@@ -69,7 +69,10 @@ test("an authenticated customer places a real order and sees it in My Orders and
   expect(timelineText!.indexOf("Draft")).toBeLessThan(timelineText!.indexOf("Submitted"));
 });
 
-test("a customer can cancel their own submitted order from Order Details", async ({ page }) => {
+test("a customer can cancel their own paid order from Order Details", async ({ page }) => {
+  // Sprint 5.5 — checkout now real-pays via the Payments Platform before reaching
+  // /checkout/confirmation, so by the time this test opens Order Details the order is already
+  // "paid," not merely "submitted" (Order.Cancel's own CANCELLABLE_STATUSES allows both).
   test.setTimeout(90_000);
   await skipOnboardingTour(page);
   await registerAndLogin(page, uniqueEmail("cancel"));

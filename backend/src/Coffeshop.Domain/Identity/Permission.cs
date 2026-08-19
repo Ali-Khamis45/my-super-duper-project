@@ -43,6 +43,8 @@ public static class PermissionCodes
     public const string ViewAnalytics = "analytics:view";
     public const string ProcessRefunds = "refunds:process";
     public const string ViewAuditLogs = "audit-logs:view";
+    /// <summary>Additive (Sprint 5.5) — the Payments bounded context's own read permission, matching <see cref="ViewOrders"/>'s own role. <see cref="ProcessRefunds"/> was already frozen in Phase 0 and seeded to <c>Admin</c> only (never <c>Staff</c>) — reused as-is for the real refund capability this sprint builds, not redefined.</summary>
+    public const string ViewPayments = "payments:view";
 
     public static IReadOnlyDictionary<string, string> AllWithDescriptions { get; } = new Dictionary<string, string>
     {
@@ -57,5 +59,6 @@ public static class PermissionCodes
         [ViewAnalytics] = "View analytics dashboards",
         [ProcessRefunds] = "Process order refunds",
         [ViewAuditLogs] = "View the audit log",
+        [ViewPayments] = "View payment records",
     };
 }

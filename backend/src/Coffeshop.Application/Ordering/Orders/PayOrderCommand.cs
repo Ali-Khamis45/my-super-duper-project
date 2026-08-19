@@ -4,24 +4,34 @@ using Coffeshop.Application.Inventory.Coordination;
 using Coffeshop.Application.Ordering.Dtos;
 using Coffeshop.Application.Ordering.Interfaces;
 using Coffeshop.Application.Ordering.Mapping;
+using Coffeshop.Application.Payments.Interfaces;
 using Coffeshop.Domain.Ordering.Exceptions;
+using Coffeshop.Domain.Payments;
+using Coffeshop.Domain.Payments.Exceptions;
 using MediatR;
 
 namespace Coffeshop.Application.Ordering.Orders;
 
 /// <summary>
-/// Admin/staff-only (`Permission.UpdateOrderStatus`, enforced at the endpoint) — this sprint has
-/// no real payment gateway (no `Payment` aggregate, no `IPaymentProvider`; this brief's Phase 1
-/// list has no such thing either), so "pay" here means what it means at a real, small coffee
-/// shop's own point of sale: staff records that payment was actually received (cash, an
-/// in-person card reader outside this system, etc.), not a card-number form this project has
-/// nothing real to submit it to. A fake "enter your card" UI backed by nothing would be exactly
-/// the placeholder implementation this sprint's brief forbids.
+/// Admin/staff-only (`Permission.UpdateOrderStatus`, enforced at the endpoint) — records that
+/// payment was received through some means outside the real gateway this sprint's Payments
+/// Platform now provides (cash, an in-person card reader). Kept as a real, separate capability
+/// rather than folded into Payments — a real, small coffee shop takes cash at the counter, and
+/// that order never had (and never will have) a <c>Payment</c> aggregate at all.
+///
+/// Guards against a real, live-verified Sprint 5.5 finding: a customer can start a real card
+/// checkout (<c>Payment</c> created, <c>Processing</c>) in one tab while staff, unaware,
+/// records the same order paid by cash here — without this guard, the card capture that
+/// resolves afterward would still succeed at the gateway (charging the customer for real) even
+/// though <c>Order.MarkPaid</c> then throws (the order is already <c>Paid</c>), a genuine
+/// double-charge with no automatic remediation. Blocking here, before the order is marked paid
+/// by any means, is cheaper and safer than trying to reconcile it after the fact.
 /// </summary>
 public sealed record PayOrderCommand(Guid OrderId) : ICommand<OrderDto>;
 
 internal sealed class PayOrderCommandHandler(
     IOrderRepository orderRepository,
+    IPaymentRepository paymentRepository,
     IInventoryReservationCoordinator inventoryReservationCoordinator,
     IClock clock)
     : IRequestHandler<PayOrderCommand, OrderDto>
@@ -29,6 +39,12 @@ internal sealed class PayOrderCommandHandler(
     public async Task<OrderDto> Handle(PayOrderCommand request, CancellationToken ct)
     {
         var order = await orderRepository.GetByIdAsync(request.OrderId, ct) ?? throw new OrderNotFoundException();
+
+        var existingPayment = await paymentRepository.GetByOrderIdAsync(order.Id, ct);
+        if (existingPayment is not null && existingPayment.Status is PaymentStatus.Pending or PaymentStatus.Processing)
+        {
+            throw new PaymentInProgressException();
+        }
 
         var now = clock.UtcNow;
         order.MarkPaid(now);

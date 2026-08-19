@@ -32,6 +32,15 @@ interface CartStoreState {
   /** Session-only in spirit (favorited recipes, not accounts) but persisted the same as the rest of this store for simplicity — see the brief's "Favorites (session only)," read here as "no server account," not "must vanish on reload." */
   favorites: RecipeSnapshot[];
   lastOrder: OrderDto | null;
+  /**
+   * Sprint 5.5 — the in-flight/most-recent `Payment.Id` for `lastOrder`, persisted the same way
+   * `lastOrder` itself is. This is what makes "refresh during checkout" and "back button to
+   * `/checkout/payment`" real, working scenarios rather than dead ends: the page re-derives its
+   * state by re-fetching this payment (`getPayment`/`confirmPayment`, both idempotent) instead of
+   * needing anything carried in a URL or component state that a reload would lose.
+   */
+  lastPaymentId: string | null;
+  setLastPaymentId: (paymentId: string | null) => void;
   addItem: (snapshot: RecipeSnapshot, quantity?: number) => void;
   removeItem: (cartItemId: string) => void;
   updateQuantity: (cartItemId: string, quantity: number) => void;
@@ -60,6 +69,8 @@ export const useCartStore = create<CartStoreState>()(
       items: [],
       favorites: [],
       lastOrder: null,
+      lastPaymentId: null,
+      setLastPaymentId: (paymentId) => set({ lastPaymentId: paymentId }),
 
       addItem: (snapshot, quantity = 1) => {
         const current = get().items;
@@ -135,7 +146,10 @@ export const useCartStore = create<CartStoreState>()(
           idempotencyKey,
         });
 
-        set({ items: [], lastOrder: order });
+        // A fresh order never inherits a previous checkout's payment id — the new order has no
+        // Payment yet, and reusing the stale id would let a refresh on the new checkout resolve
+        // against the wrong payment entirely.
+        set({ items: [], lastOrder: order, lastPaymentId: null });
         appEvents.emit({ name: "checkout:completed", orderId: order.id });
         return order;
       },
@@ -147,6 +161,7 @@ export const useCartStore = create<CartStoreState>()(
         items: state.items,
         favorites: state.favorites,
         lastOrder: state.lastOrder,
+        lastPaymentId: state.lastPaymentId,
       }),
     },
   ),
