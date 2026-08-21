@@ -87,6 +87,15 @@ jobs:
         working-directory: backend
         env:
           ASPNETCORE_ENVIRONMENT: Development
+          # Jwt:SigningKey is deliberately excluded from committed config (dotnet
+          # user-secrets locally, the secret manager in production — see
+          # JwtOptions.cs's own doc comment) so it doesn't exist in a fresh CI
+          # checkout at all. This is a CI-only, disposable key that signs nothing
+          # real — it exists purely so JwtBearerOptions can construct a
+          # SymmetricSecurityKey without a zero-length-key crash, not to protect
+          # anything. Stored as a repo secret rather than inlined here anyway, to
+          # keep the workflow file itself free of anything that looks secret-shaped.
+          Jwt__SigningKey: ${{ secrets.CI_JWT_SIGNING_KEY }}
         run: |
           dotnet run --project src/Coffeshop.Api --urls http://localhost:5000 > api.log 2>&1 &
           timeout 90 bash -c 'until curl -sf http://localhost:5000/health/ready >/dev/null; do sleep 3; done'
