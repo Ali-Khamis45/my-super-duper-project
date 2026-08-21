@@ -57,6 +57,25 @@ builder.Services.AddHealthChecks()
 
 var app = builder.Build();
 
+// `dotnet Coffeshop.Api.dll --seed` — an explicit, opt-in one-time migrate+seed for a
+// fresh deployment's empty database (a demo environment, most likely). Deliberately not
+// automatic outside Development: the whole point of gating auto-migrate/seed to dev-only
+// (see the comment on the block below) is that a real deployment should never silently
+// mutate its own database on every restart. This runs once, on command, then the process
+// exits — it never starts the API. Safe to run again later too: migrations are idempotent
+// by EF Core's own design, and every seeder here already checks for existing rows first.
+if (args.Contains("--seed"))
+{
+    using var scope = app.Services.CreateScope();
+    var context = scope.ServiceProvider.GetRequiredService<CoffeshopDbContext>();
+    await context.Database.MigrateAsync();
+    await IdentitySeeder.SeedAsync(context);
+    await CatalogSeeder.SeedAsync(context);
+    await InventorySeeder.SeedAsync(context);
+    Console.WriteLine("Seed complete.");
+    return;
+}
+
 if (app.Environment.IsDevelopment())
 {
     // Migrations apply as an explicit pre-deploy gate everywhere else
