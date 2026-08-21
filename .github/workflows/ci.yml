@@ -1,0 +1,121 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend (build + test)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --no-restore
+
+      # Coffeshop.IntegrationTests spins up its own real PostgreSQL container via
+      # Testcontainers — no docker-compose/services block needed here, ubuntu-latest
+      # ships Docker preinstalled and Testcontainers talks to it directly.
+      - name: Test
+        run: dotnet test --no-build --logger "console;verbosity=normal"
+
+  frontend:
+    name: Frontend (typecheck + lint + unit tests + build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "npm"
+
+      - run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit tests
+        run: npm run test
+
+      - name: Production build
+        run: npm run build
+
+  e2e-smoke:
+    name: E2E smoke (Chromium — cart + payments)
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "npm"
+
+      - name: Start dev stack (Postgres, Redis, Mailhog, Seq)
+        working-directory: backend
+        run: |
+          docker compose up -d
+          timeout 60 bash -c 'until docker exec coffeshop-backend-postgres-1 pg_isready -U coffeshop >/dev/null 2>&1; do sleep 2; done'
+
+      - name: Start backend API
+        working-directory: backend
+        env:
+          ASPNETCORE_ENVIRONMENT: Development
+        run: |
+          dotnet run --project src/Coffeshop.Api --urls http://localhost:5000 > api.log 2>&1 &
+          timeout 90 bash -c 'until curl -sf http://localhost:5000/health/ready >/dev/null; do sleep 3; done'
+
+      - run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      # Full 3-browser regression lives in e2e-full.yml (scheduled/manual) — this is the
+      # fast, high-signal subset the Payments Platform close-out already established as
+      # the trustworthy baseline (26/26 across cart/payments/orders/admin-orders). cart +
+      # payments alone cover the real checkout-through-payment-confirmation path without
+      # the registration-heavy files' AuthPolicy rate-limiter interaction (documented in
+      # docs/reviews/sprint-5.5-review.md) needing a second, standalone invocation.
+      - name: Run smoke e2e (cart + payments, Chromium)
+        run: npx playwright test e2e/cart.spec.ts e2e/payments.spec.ts --project=chromium --workers=1
+
+      - name: Upload backend log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-api-log
+          path: backend/api.log
+
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
