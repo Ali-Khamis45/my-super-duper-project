@@ -35,6 +35,17 @@ test("adding to cart shows a confirmation and updates the navbar badge, no conso
 
   await page.goto("/customize?drink=mocha");
   await page.waitForSelector('[role="application"] canvas');
+  // A short settle wait, specific to this one test (not `addMochaToCart`, which correctly
+  // avoids this fragile assertion entirely — see its own doc comment). This is the only
+  // real interaction in the whole suite that checks the transient "Added" text directly,
+  // which only holds for 1.2s — on a cold CI run (first real page hit after the dev server
+  // and WebGL context both just started), the click-to-render round trip has been observed
+  // to occasionally eat that whole window before Playwright's own polling ever catches the
+  // text, on a machine other tests immediately after run fine on (confirmed: two consecutive
+  // CI runs failed only this test, only as the very first interaction). This wait gives the
+  // cold environment a moment to finish settling before the timing-sensitive part starts,
+  // rather than retrying the flaky window itself.
+  await page.waitForTimeout(800);
   await page.getByRole("button", { name: "Add to Cart" }).click();
   // The transient confirmation text — checked directly, right after click,
   // not relied on by any other test (see `addMochaToCart`'s own doc comment).

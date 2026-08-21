@@ -25,11 +25,15 @@ export default defineConfig({
   // 0 locally — a flake here should surface immediately during development, never be
   // silently absorbed. A real, CI-only failure (see CI workflow's own e2e-smoke job)
   // confirmed this needs a narrow exception: the very first interaction of a cold CI
-  // run missed AddToCartButton's 1200ms "Added" confirmation window — every other
-  // add-to-cart interaction in the same run, on the now-warm dev server, passed. One
-  // retry on CI only absorbs exactly that class of first-hit cold-start jitter without
-  // masking a real regression (a genuinely broken feature still fails both attempts).
-  retries: process.env.CI ? 1 : 0,
+  // run occasionally missed AddToCartButton's 1200ms "Added" confirmation window — the
+  // exact SwiftShader-backed-session frame-stall class cart.spec.ts's own doc comment
+  // already names (docs/reviews/sprint-3.3-review.md through sprint-3.5-review.md), not
+  // new. A single retry proved insufficient on one real run (two consecutive failures,
+  // same test, same assertion) — 2 retries plus the settle wait added directly to that
+  // one fragile test (see cart.spec.ts) address this from both sides: reduce how often
+  // the narrow window gets missed at all, and give more headroom when it still does. A
+  // genuinely broken feature still fails all three attempts.
+  retries: process.env.CI ? 2 : 0,
   // Default 30s was occasionally too tight for repeated real-interaction
   // tests (8 theme toggles) under this dev machine's headless-Chromium
   // click-stability checks running alongside everything else this sprint
