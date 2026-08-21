@@ -22,7 +22,14 @@ import { defineConfig, devices } from "@playwright/test";
 export default defineConfig({
   testDir: "./e2e",
   fullyParallel: true,
-  retries: 0,
+  // 0 locally — a flake here should surface immediately during development, never be
+  // silently absorbed. A real, CI-only failure (see CI workflow's own e2e-smoke job)
+  // confirmed this needs a narrow exception: the very first interaction of a cold CI
+  // run missed AddToCartButton's 1200ms "Added" confirmation window — every other
+  // add-to-cart interaction in the same run, on the now-warm dev server, passed. One
+  // retry on CI only absorbs exactly that class of first-hit cold-start jitter without
+  // masking a real regression (a genuinely broken feature still fails both attempts).
+  retries: process.env.CI ? 1 : 0,
   // Default 30s was occasionally too tight for repeated real-interaction
   // tests (8 theme toggles) under this dev machine's headless-Chromium
   // click-stability checks running alongside everything else this sprint
