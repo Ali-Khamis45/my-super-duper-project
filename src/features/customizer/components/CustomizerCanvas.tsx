@@ -30,7 +30,11 @@ export function CustomizerCanvas() {
   const selection = useCustomizerStore((state) => state.selection);
   const preview = useCustomizerStore((state) => state.preview);
   const wrapperRef = useRef<HTMLDivElement>(null);
-  const zoomControls = useCupZoomControls({ targetRef: wrapperRef, initialZoom: CUSTOMIZER_INITIAL_ZOOM });
+  // requireModifierForWheelZoom: the canvas here shares the layout with the options
+  // panel and the Add to Cart button below it — capturing every bare wheel tick
+  // for zoom (fine on the full-viewport Hero) made that content unreachable by
+  // scroll whenever the cursor was over the cup. Ctrl/Cmd+wheel still zooms.
+  const zoomControls = useCupZoomControls({ targetRef: wrapperRef, initialZoom: CUSTOMIZER_INITIAL_ZOOM, requireModifierForWheelZoom: true });
 
   const effective = useMemo(() => ({ ...selection, ...preview }), [selection, preview]);
   const { partOverrides, cupScale } = useMemo(() => resolvePartOverrides(effective), [effective]);

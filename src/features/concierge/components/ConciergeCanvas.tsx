@@ -32,7 +32,10 @@ const CONCIERGE_INITIAL_ZOOM = 1.15;
 export function ConciergeCanvas() {
   const lastRecommendation = useConciergeStore((state) => state.lastRecommendation);
   const wrapperRef = useRef<HTMLDivElement>(null);
-  const zoomControls = useCupZoomControls({ targetRef: wrapperRef, initialZoom: CONCIERGE_INITIAL_ZOOM });
+  // requireModifierForWheelZoom: same fix as `CustomizerCanvas` — this canvas sits
+  // beside the questionnaire/recommendation panel the user needs to scroll to
+  // reach, so a bare wheel over the cup must scroll the page, not zoom it.
+  const zoomControls = useCupZoomControls({ targetRef: wrapperRef, initialZoom: CONCIERGE_INITIAL_ZOOM, requireModifierForWheelZoom: true });
 
   const ingredientLayers = useMemo(() => {
     if (!lastRecommendation) return undefined;

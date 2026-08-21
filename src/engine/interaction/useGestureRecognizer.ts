@@ -19,13 +19,34 @@ const PRESS_HOLD_MS = 500;
  * (e.g. a future 2D customizer control). See docs/27_RC0_APPROVAL.md and
  * this sprint's retrospective for the full reasoning.
  */
+interface UseGestureRecognizerOptions {
+  /**
+   * When true, a bare wheel gesture is left alone (native page scroll
+   * happens, this recognizer stays silent) and only `ctrlKey`/`metaKey` +
+   * wheel is captured for the target to interpret. For a target that fills
+   * the whole viewport (e.g. the Hero cup) capturing every wheel tick is the
+   * right call; for one that sits beside other page content the user needs
+   * to scroll past (Customizer, Concierge), capturing every wheel tick over
+   * a large, visually-dominant element makes that content unreachable by
+   * scroll — a real reported bug, not a hypothetical one. Defaults to false
+   * so every existing caller's behavior is unchanged.
+   */
+  wheelRequiresModifier?: boolean;
+}
+
 export function useGestureRecognizer(
   targetRef: RefObject<HTMLElement | null>,
   handlers: Partial<Record<GestureType, (event: GestureEvent) => void>>,
+  options: UseGestureRecognizerOptions = {},
 ) {
   const handlersRef = useRef(handlers);
   useEffect(() => {
     handlersRef.current = handlers;
+  });
+
+  const optionsRef = useRef(options);
+  useEffect(() => {
+    optionsRef.current = options;
   });
 
   useEffect(() => {
@@ -49,6 +70,11 @@ export function useGestureRecognizer(
     }
 
     function handleWheel(event: WheelEvent) {
+      if (optionsRef.current.wheelRequiresModifier && !(event.ctrlKey || event.metaKey)) {
+        // Let the browser handle this one natively (page scroll) — the
+        // target only wants wheel gestures held with a modifier key.
+        return;
+      }
       // Non-passive: a wheel gesture over the target is this recognizer's to
       // interpret (e.g. camera zoom), not the page's to scroll.
       event.preventDefault();

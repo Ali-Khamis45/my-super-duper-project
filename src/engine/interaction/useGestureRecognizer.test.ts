@@ -44,9 +44,9 @@ describe("useGestureRecognizer", () => {
     vi.useRealTimers();
   });
 
-  function setup(handlers: Partial<Record<GestureType, (event: GestureEvent) => void>>) {
+  function setup(handlers: Partial<Record<GestureType, (event: GestureEvent) => void>>, options?: { wheelRequiresModifier?: boolean }) {
     const ref = { current: element };
-    renderHook(() => useGestureRecognizer(ref, handlers));
+    renderHook(() => useGestureRecognizer(ref, handlers, options));
   }
 
   it("emits hover-start and hover-end on pointerenter/pointerleave", () => {
@@ -125,5 +125,38 @@ describe("useGestureRecognizer", () => {
     vi.advanceTimersByTime(600);
 
     expect(onPressHold).not.toHaveBeenCalled();
+  });
+
+  it("dispatches wheel and prevents default by default (no wheelRequiresModifier)", () => {
+    const onWheel = vi.fn();
+    setup({ wheel: onWheel });
+
+    const event = new WheelEvent("wheel", { bubbles: true, cancelable: true, deltaY: 100 });
+    element.dispatchEvent(event);
+
+    expect(onWheel).toHaveBeenCalledTimes(1);
+    expect(event.defaultPrevented).toBe(true);
+  });
+
+  it("wheelRequiresModifier: a bare wheel is left alone for the page to scroll natively", () => {
+    const onWheel = vi.fn();
+    setup({ wheel: onWheel }, { wheelRequiresModifier: true });
+
+    const event = new WheelEvent("wheel", { bubbles: true, cancelable: true, deltaY: 100 });
+    element.dispatchEvent(event);
+
+    expect(onWheel).not.toHaveBeenCalled();
+    expect(event.defaultPrevented).toBe(false);
+  });
+
+  it("wheelRequiresModifier: Ctrl+wheel still zooms", () => {
+    const onWheel = vi.fn();
+    setup({ wheel: onWheel }, { wheelRequiresModifier: true });
+
+    const event = new WheelEvent("wheel", { bubbles: true, cancelable: true, deltaY: 100, ctrlKey: true });
+    element.dispatchEvent(event);
+
+    expect(onWheel).toHaveBeenCalledTimes(1);
+    expect(event.defaultPrevented).toBe(true);
   });
 });

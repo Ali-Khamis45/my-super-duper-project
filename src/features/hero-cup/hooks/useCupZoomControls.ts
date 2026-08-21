@@ -22,6 +22,17 @@ interface UseCupZoomControlsOptions {
   targetRef: RefObject<HTMLElement | null>;
   /** The zoom level this view starts at and returns to on "Reset View". Defaults to 1 (the preset's own authored framing). */
   initialZoom?: number;
+  /**
+   * When true, a bare wheel over `targetRef` doesn't zoom — it's left alone
+   * so the page scrolls natively — and only Ctrl/Cmd+wheel zooms. For a
+   * canvas that fills the whole viewport (Hero) capturing every wheel tick
+   * is correct; for one that sits beside page content the user needs to
+   * scroll past to reach (Customizer's "Add to Cart", Concierge's
+   * recommendation) it made that content unreachable by scroll whenever the
+   * cursor happened to be over the cup — a real reported bug. Defaults to
+   * false, so Hero's own existing wheel-to-zoom behavior is unchanged.
+   */
+  requireModifierForWheelZoom?: boolean;
 }
 
 /**
@@ -42,7 +53,7 @@ interface UseCupZoomControlsOptions {
  * mounted cup viewer (Hero, Customizer) gets its own independent zoom state
  * rather than bleeding across routes/instances.
  */
-export function useCupZoomControls({ targetRef, initialZoom = 1 }: UseCupZoomControlsOptions) {
+export function useCupZoomControls({ targetRef, initialZoom = 1, requireModifierForWheelZoom = false }: UseCupZoomControlsOptions) {
   const clampedInitial = clampZoom(initialZoom);
   // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally created once; `initialZoom` is a mount-time-only seed, not a reactive input.
   const store = useMemo(() => createBridgeStore(clampedInitial), []);
@@ -64,12 +75,16 @@ export function useCupZoomControls({ targetRef, initialZoom = 1 }: UseCupZoomCon
   const reset = useCallback(() => setZoom(initialZoomRef.current), [setZoom]);
   const fitToScreen = useCallback(() => setZoom(FIT_TO_SCREEN_ZOOM), [setZoom]);
 
-  useGestureRecognizer(targetRef, {
-    wheel: (event) => {
-      const deltaY = event.delta?.y ?? 0;
-      setZoom(store.getValue() + deltaY * WHEEL_SENSITIVITY);
+  useGestureRecognizer(
+    targetRef,
+    {
+      wheel: (event) => {
+        const deltaY = event.delta?.y ?? 0;
+        setZoom(store.getValue() + deltaY * WHEEL_SENSITIVITY);
+      },
     },
-  });
+    { wheelRequiresModifier: requireModifierForWheelZoom },
+  );
 
   // Double-click/double-tap reset, plus pinch — kept as native listeners on
   // the same target rather than folded into useGestureRecognizer: pinch's
