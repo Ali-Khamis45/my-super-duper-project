@@ -1,5 +1,7 @@
 # Coffeshop
 
+[![CI](https://github.com/Ali-Khamis45/my-super-duper-project/actions/workflows/ci.yml/badge.svg)](https://github.com/Ali-Khamis45/my-super-duper-project/actions/workflows/ci.yml)
+
 An interactive, premium coffee-shop experience — built iteratively, milestone by milestone, against the full roadmap in [docs/08_MILESTONES.md](docs/08_MILESTONES.md). Since Milestone 5, a real commerce backend (accounts, catalog, ordering, inventory, payments) lives in [`backend/`](backend/README.md) behind it — this is a full-stack app, not a frontend-only demo.
 
 **Start here:** [docs/00_SYSTEM_PROMPT.md](docs/00_SYSTEM_PROMPT.md) — the operating philosophy every contributor (human or agent) works to, and the index into the rest of the `docs/` set (architecture, design system, 3D engine, motion engine, coding standards, milestones, and the Creative Director Review process). For a full project status report — what's shipped, what's known-open, what's next — see [explain.md](explain.md).
